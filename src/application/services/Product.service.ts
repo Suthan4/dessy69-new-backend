@@ -1,52 +1,99 @@
 import { IProductRepository } from "@/domain/interfaces/IProductRepository";
-
+import { ICategoryRepository } from "@/domain/interfaces/ICategoryRepository";
 import { IProductService } from "../interface/IService";
 import { ProductServiceMapper } from "../mappers/ProductServiceMapper";
-import { Product } from "@/domain/entities/Product.entity";
-import { CreateProductDTO, ProductResponseDTO, UpdateProductDTO } from "../dtos/ProductDTO";
+import { Product, ProductVariant } from "@/domain/entities/Product.entity";
+import {
+  CreateProductDTO,
+  ProductResponseDTO,
+  UpdateProductDTO,
+} from "../dtos/ProductDTO";
+import { Types } from "mongoose";
+import { SocketManager } from "@/infrastructure/socket/SocketManager";
 
 export class ProductService implements IProductService {
-  constructor(private productRepository: IProductRepository) {}
+  constructor(
+    private productRepository: IProductRepository,
+    private categoryRepository: ICategoryRepository
+  ) {}
 
   async getAllProducts(): Promise<ProductResponseDTO[]> {
     const products = await this.productRepository.findAll();
     return products.map((p) => ProductServiceMapper.mapToDTO(p));
   }
+
   async getProductById(id: string): Promise<ProductResponseDTO> {
     const product = await this.productRepository.findById(id);
     if (!product) throw new Error("Product not found");
     return ProductServiceMapper.mapToDTO(product);
   }
+
   async createProduct(data: CreateProductDTO): Promise<ProductResponseDTO> {
+    // Validate category exists
+    const category = await this.categoryRepository.findById(data.categoryId);
+    if (!category) throw new Error("Category not found");
+
     const product = new Product(
       "",
       data.name,
       data.description,
-      data.category,
-      data.basePrice,
+      new Types.ObjectId(data.categoryId),
       data.image,
       data.variants || [],
       data.isAvailable ?? true,
-      data.isPopular ?? false,
+      data.popularity ?? 0,
+      data.tags || [],
       new Date(),
       new Date()
     );
+
     const created = await this.productRepository.create(product);
-    return ProductServiceMapper.mapToDTO(created);
+    const dto = ProductServiceMapper.mapToDTO(created);
+
+    // Emit socket event
+    const socketManager = SocketManager.getInstance();
+    socketManager.broadcast("menu:created", dto);
+
+    return dto;
   }
+
   async updateProduct(
     id: string,
     data: UpdateProductDTO
   ): Promise<ProductResponseDTO> {
-    const updated = await this.productRepository.update(id, data);
+    // If categoryId is being updated, validate it exists
+    if (data.categoryId) {
+      const category = await this.categoryRepository.findById(data.categoryId);
+      if (!category) throw new Error("Category not found");
+    }
+
+    const updated = await this.productRepository.update(id, data as any);
     if (!updated) throw new Error("Product not found");
-    return ProductServiceMapper.mapToDTO(updated);
+
+    const dto = ProductServiceMapper.mapToDTO(updated);
+
+    // Emit socket event
+    const socketManager = SocketManager.getInstance();
+    socketManager.broadcast("menu:updated", dto);
+
+    return dto;
   }
+
   async deleteProduct(id: string): Promise<boolean> {
-    return await this.productRepository.delete(id);
+    const result = await this.productRepository.delete(id);
+
+    if (result) {
+      const socketManager = SocketManager.getInstance();
+      socketManager.broadcast("menu:deleted", { id });
+    }
+
+    return result;
   }
-  async getProductsByCategory(category: string): Promise<ProductResponseDTO[]> {
-    const products = await this.productRepository.findByCategory(category);
+
+  async getProductsByCategory(
+    categoryId: string
+  ): Promise<ProductResponseDTO[]> {
+    const products = await this.productRepository.findByCategoryId(categoryId);
     return products.map((p) => ProductServiceMapper.mapToDTO(p));
   }
 
@@ -56,7 +103,17 @@ export class ProductService implements IProductService {
   }
 
   async updateAvailability(id: string, status: boolean): Promise<boolean> {
-    return await this.productRepository.updateAvailability(id, status);
+    const result = await this.productRepository.updateAvailability(id, status);
+
+    if (result) {
+      const socketManager = SocketManager.getInstance();
+      socketManager.broadcast("product:availability", {
+        productId: id,
+        isAvailable: status,
+      });
+    }
+
+    return result;
   }
 
   async searchProducts(query: string): Promise<ProductResponseDTO[]> {

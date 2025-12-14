@@ -5,15 +5,38 @@ export class OrderServiceMapper {
   static mapToDTO(order: Order): OrderResponseDTO {
     return {
       id: order.id,
-      userId: order.userId,
+      orderId: order.orderId,
+      customerDetails: order.customerDetails,
       items: order.items,
       subtotal: order.subtotal,
       discount: order.discount,
       total: order.total,
       status: order.status,
-      paymentId: order.paymentId,
-      couponCode: order.couponCode,  
-      cancelReason: order.cancelReason,  
+      paymentStatus: order.paymentStatus,
+
+      ...(order.paymentId !== undefined && {
+        paymentId: order.paymentId,
+      }),
+      ...(order.razorpayOrderId !== undefined && {
+        razorpayOrderId: order.razorpayOrderId,
+      }),
+      ...(order.razorpayPaymentId !== undefined && {
+        razorpayPaymentId: order.razorpayPaymentId,
+      }),
+      ...(order.razorpaySignature !== undefined && {
+        razorpaySignature: order.razorpaySignature,
+      }),
+      ...(order.couponCode !== undefined && {
+        couponCode: order.couponCode,
+      }),
+      ...(order.notes !== undefined && {
+        notes: order.notes,
+      }),
+      ...(order.estimatedTime !== undefined && {
+        estimatedTime: order.estimatedTime,
+      }),
+      trackingHistory: order.trackingHistory ?? undefined,
+
       createdAt: order.createdAt,
       updatedAt: order.updatedAt,
     };

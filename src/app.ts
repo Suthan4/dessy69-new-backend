@@ -4,8 +4,10 @@ import { AuthRoutes } from "./presentation/routes/auth.routes";
 import { ProductRoutes } from "./presentation/routes/product.routes";
 import { OrderRoutes } from "./presentation/routes/order.routes";
 import { CouponRoutes } from "./presentation/routes/coupon.routes";
-import { createServer } from "http";
+import { createServer, Server } from "http";
 import { SocketManager } from "./infrastructure/socket/SocketManager";
+import { CategoryRoutes } from "./presentation/routes/category.routes";
+import { PaymentRoutes } from "./presentation/routes/payment.route";
 
 export class Application {
   private app: Express;
@@ -36,17 +38,20 @@ export class Application {
     this.app.get("/", (_, res: Response) => {
       res.json({
         status: "OK",
-        description: "🎉 Server Running Successfully",
+        description:
+          "🍨 Dessy69 Cafe - Fruit Fuelled! Server Running Successfully",
       });
     });
     this.app.use("/api/auth", new AuthRoutes().router);
+    this.app.use("/api/categories", new CategoryRoutes().router);
     this.app.use("/api/products", new ProductRoutes().router);
     this.app.use("/api/orders", new OrderRoutes().router);
     this.app.use("/api/coupons", new CouponRoutes().router);
+    this.app.use("/api/payment", new PaymentRoutes().router);
 
   }
 
-  private setupSocket(): void {
+  private setupSocket(): Server {
     const server = createServer(this.app);
     const socketManager = SocketManager.getInstance();
     const io = socketManager.initialize(server);
@@ -56,6 +61,8 @@ export class Application {
       (req as any).io = io;
       next();
     });
+
+    return server
   }
 
   public getApp(): Express {

@@ -1,32 +1,39 @@
-import mongoose, { HydratedDocument, Schema, Types } from "mongoose";
+import mongoose, { HydratedDocument, Schema } from "mongoose";
+import { OrderStatus, PaymentStatus } from "@/domain/entities/Order.entity";
 
 export interface IOrder extends Document {
-  userId: Types.ObjectId;
-  items: {
-    productId: Types.ObjectId;
-    productName: string;
+  orderId: string;
+  customerDetails: {
+    name: string;
+    phone: string;
+    email?: string;
+    address?: string;
+  };
+  items: Array<{
+    menuItemId: mongoose.Types.ObjectId;
+    name: string;
+    variantName: string;
+    price: number;
     quantity: number;
-    basePrice: number;
-    variant?: {
-      name?: string;
-      additionalPrice?: number;
-      isAvailable?: boolean;
-    };
     totalPrice: number;
-  }[];
+  }>;
   subtotal: number;
   discount: number;
   total: number;
-  status:
-    | "pending"
-    | "confirmed"
-    | "preparing"
-    | "ready"
-    | "completed"
-    | "cancelled";
-  paymentId: string;
+  status: OrderStatus;
+  paymentStatus: PaymentStatus;
+  paymentId?: string;
+  razorpayOrderId?: string;
+  razorpayPaymentId?: string;
+  razorpaySignature?: string;
   couponCode?: string;
-  cancelReason?: string;
+  notes?: string;
+  estimatedTime?: number;
+  trackingHistory: Array<{
+    status: OrderStatus;
+    timestamp: Date;
+    notes?: string;
+  }>;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -35,44 +42,75 @@ export type IOrderDocument = HydratedDocument<IOrder>;
 
 const OrderSchema = new Schema<IOrder>(
   {
-    userId: { type: Schema.Types.ObjectId, ref: "User", required: true },
+    orderId: {
+      type: String,
+      required: true,
+      unique: true,
+    },
+    customerDetails: {
+      name: { type: String, required: true },
+      phone: { type: String, required: true },
+      email: { type: String },
+      address: { type: String },
+    },
     items: [
       {
-        productId: {
+        menuItemId: {
           type: Schema.Types.ObjectId,
           ref: "Product",
           required: true,
         },
-        productName: { type: String, required: true },
+        name: { type: String, required: true },
+        variantName: { type: String, required: true },
+        price: { type: Number, required: true },
         quantity: { type: Number, required: true },
-        basePrice: { type: Number, required: true },
-        variant: {
-          name: String,
-          additionalPrice: Number,
-          isAvailable: Boolean,
-        },
         totalPrice: { type: Number, required: true },
       },
     ],
-    subtotal: Number,
-    discount: Number,
-    total: Number,
+    subtotal: { type: Number, required: true },
+    discount: { type: Number, default: 0 },
+    total: { type: Number, required: true },
     status: {
       type: String,
-      enum: [
-        "pending",
-        "confirmed",
-        "preparing",
-        "ready",
-        "completed",
-        "cancelled",
-      ],
+      enum: Object.values(OrderStatus),
+      default: OrderStatus.PENDING,
+      index: true,
     },
-    paymentId: String,
-    couponCode: String,
-    cancelReason: String,
+    paymentStatus: {
+      type: String,
+      enum: Object.values(PaymentStatus),
+      default: PaymentStatus.PENDING,
+      index: true,
+    },
+    paymentId: { type: String },
+    razorpayOrderId: { type: String },
+    razorpayPaymentId: { type: String },
+    razorpaySignature: { type: String },
+    couponCode: { type: String },
+    notes: { type: String },
+    estimatedTime: { type: Number },
+    trackingHistory: {
+      type: [
+        {
+          status: {
+            type: String,
+            enum: Object.values(OrderStatus),
+            required: true,
+          },
+          timestamp: { type: Date, required: true },
+          notes: { type: String },
+        },
+      ],
+      default: [],
+    },
   },
   { timestamps: true }
 );
+
+OrderSchema.index({ orderId: 1 });
+OrderSchema.index({ "customerDetails.phone": 1 });
+OrderSchema.index({ status: 1, createdAt: -1 });
+OrderSchema.index({ createdAt: -1 });
+
 
 export const OrderModel = mongoose.model<IOrder>("Order", OrderSchema);

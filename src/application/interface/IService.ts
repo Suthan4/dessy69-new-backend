@@ -1,7 +1,25 @@
-import { AuthResponseDTO, LoginDTO, RegisterDTO, UserResponseDTO } from "../dtos/AuthDTO";
-import { CouponResponseDTO, CouponValidationDTO, CreateCouponDTO, UpdateCouponDTO } from "../dtos/CouponDTO";
-import { CreateOrderDTO, OrderResponseDTO, OrderStatisticsDTO } from "../dtos/OrderDTO";
-import { CreateProductDTO, ProductResponseDTO, UpdateProductDTO } from "../dtos/ProductDTO";
+import {
+  AuthResponseDTO,
+  LoginDTO,
+  RegisterDTO,
+  UserResponseDTO,
+} from "../dtos/AuthDTO";
+import {
+  CouponResponseDTO,
+  CouponValidationDTO,
+  CreateCouponDTO,
+  UpdateCouponDTO,
+} from "../dtos/CouponDTO";
+import {
+  CreateOrderDTO,
+  OrderResponseDTO,
+  OrderStatisticsDTO,
+} from "../dtos/OrderDTO";
+import {
+  CreateProductDTO,
+  ProductResponseDTO,
+  UpdateProductDTO,
+} from "../dtos/ProductDTO";
 
 export interface IProductService {
   getAllProducts(): Promise<ProductResponseDTO[]>;
@@ -12,27 +30,43 @@ export interface IProductService {
     data: UpdateProductDTO
   ): Promise<ProductResponseDTO>;
   deleteProduct(id: string): Promise<boolean>;
-  getProductsByCategory(category: string): Promise<ProductResponseDTO[]>;
+  getProductsByCategory(categoryId: string): Promise<ProductResponseDTO[]>;
   getPopularProducts(): Promise<ProductResponseDTO[]>;
   updateAvailability(id: string, status: boolean): Promise<boolean>;
   searchProducts(query: string): Promise<ProductResponseDTO[]>;
 }
 
 export interface IOrderService {
-  createOrder(
-    userId: string,
-    orderData: CreateOrderDTO
-  ): Promise<OrderResponseDTO>;
+  createOrder(orderData: CreateOrderDTO): Promise<OrderResponseDTO>;
   getOrderById(id: string): Promise<OrderResponseDTO>;
-  getUserOrders(userId: string): Promise<OrderResponseDTO[]>;
+  getOrderByOrderId(orderId: string): Promise<OrderResponseDTO>;
+  getUserOrders(phone: string): Promise<OrderResponseDTO[]>;
   getAllOrders(): Promise<OrderResponseDTO[]>;
-  updateOrderStatus(id: string, status: string): Promise<OrderResponseDTO>;
-  cancelOrder(id: string, reason: string): Promise<OrderResponseDTO>;
+  updateOrderStatus(
+    orderId: string,
+    status: string,
+    notes?: string,
+    estimatedTime?: number
+  ): Promise<OrderResponseDTO>;
+  updatePaymentStatus(
+    orderId: string,
+    razorpayOrderId: string,
+    razorpayPaymentId: string,
+    razorpaySignature: string
+  ): Promise<OrderResponseDTO>;
+  cancelOrder(orderId: string, reason: string): Promise<OrderResponseDTO>;
   getTodayOrders(): Promise<OrderResponseDTO[]>;
   getOrderStatistics(
     startDate: Date,
     endDate: Date
   ): Promise<OrderStatisticsDTO[]>;
+  getOrderStats(): Promise<{
+    totalOrders: number;
+    pendingOrders: number;
+    completedOrders: number;
+    totalRevenue: number;
+    todayOrders: number;
+  }>;
 }
 
 export interface ICouponService {

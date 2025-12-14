@@ -7,16 +7,33 @@ export class ProductMapper {
       doc._id.toString(),
       doc.name,
       doc.description,
-      doc.category,
-      doc.basePrice,
+      doc.categoryId,
       doc.image,
       doc.variants.map(
-        (v) => new ProductVariant(v.name, v.additionalPrice, v.isAvailable)
+        (v) => new ProductVariant(v.name, v.price, v.isAvailable)
       ),
       doc.isAvailable,
-      doc.isPopular,
+      doc.popularity,
+      doc.tags,
       doc.createdAt,
       doc.updatedAt
     );
+  }
+
+  static toPersistence(entity: Product) {
+    return {
+      name: entity.name,
+      description: entity.description,
+      categoryId: entity.categoryId,
+      image: entity.image,
+      variants: entity.variants.map((v) => ({
+        name: v.name,
+        price: v.price,
+        isAvailable: v.isAvailable,
+      })),
+      isAvailable: entity.isAvailable,
+      popularity: entity.popularity,
+      tags: entity.tags,
+    };
   }
 }

@@ -1,44 +1,58 @@
 import mongoose, { HydratedDocument, Schema } from "mongoose";
-export interface Product extends Document {
+
+export interface IProduct extends Document {
   name: string;
   description: string;
-  category: string;
-  basePrice: number;
+  categoryId: mongoose.Types.ObjectId;
   image: string;
   variants: Array<{
     name: string;
-    additionalPrice: number;
+    price: number;
     isAvailable: boolean;
   }>;
   isAvailable: boolean;
-  isPopular: boolean;
+  popularity: number;
+  tags: string[];
   createdAt: Date;
   updatedAt: Date;
 }
-export type IProductDocument = HydratedDocument<Product>;
+
+export type IProductDocument = HydratedDocument<IProduct>;
 
 const ProductSchema = new Schema<IProductDocument>(
   {
-    name: { type: String, required: true, index: true },
+    name: { type: String, required: true, trim: true, index: true },
     description: { type: String, required: true },
-    category: { type: String, required: true, index: true },
-    basePrice: { type: Number, required: true, min: 0 },
+    categoryId: {
+      type: Schema.Types.ObjectId,
+      ref: "Category",
+      required: true,
+      index: true,
+    },
     image: { type: String, required: true },
-    variants: [
-      {
-        name: { type: String, required: true },
-        additionalPrice: { type: Number, required: true, default: 0 },
-        isAvailable: { type: Boolean, default: true },
-      },
-    ],
+    variants: {
+      type: [
+        {
+          name: { type: String, required: true },
+          price: { type: Number, required: true, min: 0 },
+          isAvailable: { type: Boolean, default: true },
+        },
+      ],
+      required: true,
+      validate: [
+        (val: any[]) => val.length > 0,
+        "At least one variant is required",
+      ],
+    },
     isAvailable: { type: Boolean, default: true, index: true },
-    isPopular: { type: Boolean, default: false, index: true },
+    popularity: { type: Number, default: 0, min: 0 },
+    tags: [{ type: String }],
   },
   { timestamps: true }
 );
 
-ProductSchema.index({ name: "text", description: "text" });
-ProductSchema.index({ category: 1, isAvailable: 1 });
+ProductSchema.index({ name: "text", description: "text", tags: "text" });
+ProductSchema.index({ categoryId: 1, isAvailable: 1 });
 
 export const ProductModel = mongoose.model<IProductDocument>(
   "Product",

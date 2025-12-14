@@ -1,19 +1,26 @@
-import { Order, OrderItem, OrderStatus } from "@/domain/entities/Order.entity";
+import { Order, OrderStatus } from "@/domain/entities/Order.entity";
 import { IOrderRepository } from "@/domain/interfaces/IOrderRepository";
 import { IOrderDocument, OrderModel } from "../models/Order.model";
-import { ProductVariant } from "@/domain/entities/Product.entity";
-import { Types } from "mongoose";
 import { OrderMapper } from "../mappers/Order.mapper";
 
 export class OrderRepository implements IOrderRepository {
-  async findByUserId(userId: string): Promise<Order[]> {
-    const docs = await OrderModel.find({ userId }).sort({ createAt: -1 });
+  async findByOrderId(orderId: string): Promise<Order | null> {
+    const doc = await OrderModel.findOne({ orderId });
+    return doc ? OrderMapper.mapToEntity(doc) : null;
+  }
+
+  async findByCustomerPhone(phone: string): Promise<Order[]> {
+    const docs = await OrderModel.find({
+      "customerDetails.phone": phone,
+    }).sort({ createdAt: -1 });
     return docs.map((doc) => OrderMapper.mapToEntity(doc));
   }
+
   async findByStatus(status: OrderStatus): Promise<Order[]> {
     const docs = await OrderModel.find({ status }).sort({ createdAt: -1 });
     return docs.map((doc) => OrderMapper.mapToEntity(doc));
   }
+
   async updateStatus(id: string, status: OrderStatus): Promise<Order | null> {
     const doc = await OrderModel.findByIdAndUpdate(
       id,
@@ -25,6 +32,7 @@ export class OrderRepository implements IOrderRepository {
     );
     return doc ? OrderMapper.mapToEntity(doc) : null;
   }
+
   async getTodayIOrders(): Promise<Order[]> {
     const startOfDay = new Date();
     startOfDay.setHours(0, 0, 0, 0);
@@ -33,6 +41,7 @@ export class OrderRepository implements IOrderRepository {
     }).sort({ createdAt: -1 });
     return docs.map((doc) => OrderMapper.mapToEntity(doc));
   }
+
   async getIOrderStatistics(startDate: Date, endDate: Date): Promise<any> {
     return await OrderModel.aggregate([
       {
@@ -57,31 +66,33 @@ export class OrderRepository implements IOrderRepository {
       },
     ]);
   }
+
   async create(entity: Order): Promise<Order> {
-    const docs = await OrderModel.create(OrderMapper.toPresistance(entity));
-    return OrderMapper.mapToEntity(docs);
+    const doc = new OrderModel(OrderMapper.toPersistence(entity));
+    await doc.save();
+    return OrderMapper.mapToEntity(doc);
   }
+
   async findAll(): Promise<Order[]> {
-    const docs = await OrderModel.find()
-      .sort({ createdAt: -1 })
-      .populate("userId", "name email phone");
+    const docs = await OrderModel.find().sort({ createdAt: -1 });
     return docs.map((doc) => OrderMapper.mapToEntity(doc));
   }
+
   async findById(id: string): Promise<Order | null> {
-    const doc = await OrderModel.findById(id).populate(
-      "userId",
-      "name email phone"
-    );
+    const doc = await OrderModel.findById(id);
     return doc ? OrderMapper.mapToEntity(doc) : null;
   }
+
   async update(id: string, payload: Partial<Order>): Promise<Order | null> {
+    const updateData = OrderMapper.toPersistence(payload as Order);
     const doc = await OrderModel.findByIdAndUpdate(
       id,
-      { payload, updatedAt: new Date() },
+      { ...updateData, updatedAt: new Date() },
       { new: true }
     );
     return doc ? OrderMapper.mapToEntity(doc) : null;
   }
+
   async delete(id: string): Promise<boolean> {
     const result = await OrderModel.findByIdAndDelete(id);
     return !!result;

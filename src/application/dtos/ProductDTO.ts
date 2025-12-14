@@ -1,37 +1,39 @@
 import { ProductVariant } from "@/domain/entities/Product.entity";
+import { Types } from "mongoose";
 
 export interface CreateProductDTO {
   name: string;
   description: string;
-  category: string;
-  basePrice: number;
+  categoryId: string;
   image: string;
-  variants?: ProductVariant[];
+  variants: ProductVariant[];
   isAvailable?: boolean;
-  isPopular?: boolean;
+  popularity?: number;
+  tags?: string[];
 }
 
 export interface UpdateProductDTO {
   name?: string;
   description?: string;
-  category?: string;
-  basePrice?: number;
+  categoryId?: string;
   image?: string;
   variants?: ProductVariant[];
   isAvailable?: boolean;
-  isPopular?: boolean;
+  popularity?: number;
+  tags?: string[];
 }
 
 export interface ProductResponseDTO {
   id: string;
   name: string;
   description: string;
-  category: string;
-  basePrice: number;
+  categoryId: Types.ObjectId;
+  categoryName?: string;
   image: string;
   variants: ProductVariant[];
   isAvailable: boolean;
-  isPopular: boolean;
+  popularity: number;
+  tags: string[];
   createdAt: Date;
   updatedAt: Date;
 }

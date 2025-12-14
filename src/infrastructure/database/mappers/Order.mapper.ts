@@ -1,26 +1,25 @@
-import { Order, OrderItem, OrderStatus } from "@/domain/entities/Order.entity";
+import {
+  Order,
+  OrderItem,
+  OrderStatus,
+  PaymentStatus,
+} from "@/domain/entities/Order.entity";
 import { IOrderDocument } from "../models/Order.model";
-import { ProductVariant } from "@/domain/entities/Product.entity";
 
 export class OrderMapper {
   static mapToEntity(doc: IOrderDocument): Order {
     return new Order(
       doc._id.toString(),
-      doc.userId,
+      doc.orderId,
+      doc.customerDetails,
       doc.items.map(
         (item) =>
           new OrderItem(
-            item.productId,
-            item.productName,
+            item.menuItemId,
+            item.name,
+            item.variantName,
+            item.price,
             item.quantity,
-            item.basePrice,
-            item.variant
-              ? new ProductVariant(
-                  item.variant.name ?? "",
-                  item.variant.additionalPrice ?? 0,
-                  item.variant.isAvailable ?? true
-                )
-              : null,
             item.totalPrice
           )
       ),
@@ -28,42 +27,54 @@ export class OrderMapper {
       doc.discount,
       doc.total,
       doc.status as OrderStatus,
+      doc.paymentStatus as PaymentStatus,
       doc.paymentId,
+      doc.razorpayOrderId,
+      doc.razorpayPaymentId,
+      doc.razorpaySignature,
       doc.couponCode ?? null,
-      doc.cancelReason ?? null,
+      doc.notes,
+      doc.estimatedTime,
+      doc.trackingHistory.map((h) => ({
+        status: h.status as OrderStatus,
+        timestamp: h.timestamp,
+        ...(h.notes !== undefined && { notes: h.notes }),
+      })),
       doc.createdAt,
       doc.updatedAt
     );
   }
 
-  static toPresistance(entity: Order) {
-    return {
-      userId: entity.userId,
-      items: entity.items.map((item) => {
-        const base: any = {
-          productId: item.productId,
-          productName: item.productName,
-          quantity: item.quantity,
-          basePrice: item.basePrice,
-          totalPrice: item.totalPrice,
-        };
-
-        if (item.variant) {
-          base.variant = {
-            name: item.variant.name,
-            additionalPrice: item.variant.additionalPrice,
-            isAvailable: item.variant.isAvailable,
-          };
-        }
-
-        return base;
-      }),
+  static toPersistence(entity: Order) {
+    const data: any = {
+      orderId: entity.orderId,
+      customerDetails: entity.customerDetails,
+      items: entity.items.map((item) => ({
+        menuItemId: item.menuItemId,
+        name: item.name,
+        variantName: item.variantName,
+        price: item.price,
+        quantity: item.quantity,
+        totalPrice: item.totalPrice,
+      })),
       subtotal: entity.subtotal,
       discount: entity.discount,
       total: entity.total,
       status: entity.status,
-      paymentId: entity.paymentId,
-      ...(entity.couponCode && { couponCode: entity.couponCode }),
+      paymentStatus: entity.paymentStatus,
+      trackingHistory: entity.trackingHistory,
     };
+
+    if (entity.paymentId) data.paymentId = entity.paymentId;
+    if (entity.razorpayOrderId) data.razorpayOrderId = entity.razorpayOrderId;
+    if (entity.razorpayPaymentId)
+      data.razorpayPaymentId = entity.razorpayPaymentId;
+    if (entity.razorpaySignature)
+      data.razorpaySignature = entity.razorpaySignature;
+    if (entity.couponCode) data.couponCode = entity.couponCode;
+    if (entity.notes) data.notes = entity.notes;
+    if (entity.estimatedTime) data.estimatedTime = entity.estimatedTime;
+
+    return data;
   }
 }

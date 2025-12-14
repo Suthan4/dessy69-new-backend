@@ -1,35 +1,48 @@
-import { OrderStatus } from "@/domain/entities/Order.entity";
-import { ProductVariant } from "@/domain/entities/Product.entity";
+import {
+  OrderStatus,
+  PaymentStatus,
+  CustomerDetails,
+} from "@/domain/entities/Order.entity";
 import { Types } from "mongoose";
 
 export interface OrderItemDTO {
-  productId: Types.ObjectId;
-  productName: string;
+  menuItemId: Types.ObjectId;
+  name: string;
+  variantName: string;
+  price: number;
   quantity: number;
-  basePrice: number;
-  variant: ProductVariant | null;
   totalPrice: number;
 }
 
 export interface CreateOrderDTO {
+  customerDetails: CustomerDetails;
   items: OrderItemDTO[];
-  subtotal: number;
-  paymentId: string;
   couponCode?: string;
-  cancelReason?: string;
+  notes?: string;
 }
 
 export interface OrderResponseDTO {
   id: string;
-  userId: Types.ObjectId;
+  orderId: string;
+  customerDetails: CustomerDetails;
   items: OrderItemDTO[];
   subtotal: number;
   discount: number;
   total: number;
   status: OrderStatus;
-  paymentId: string;
-  couponCode: string | null;
-  cancelReason: string | null;
+  paymentStatus: PaymentStatus;
+  paymentId?: string;
+  razorpayOrderId?: string;
+  razorpayPaymentId?: string;
+  razorpaySignature?: string;
+  couponCode?: string | null;
+  notes?: string;
+  estimatedTime?: number;
+  trackingHistory: Array<{
+    status: OrderStatus;
+    timestamp: Date;
+    notes?: string;
+  }>;
   createdAt: Date;
   updatedAt: Date;
 }

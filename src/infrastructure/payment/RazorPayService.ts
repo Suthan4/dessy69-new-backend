@@ -6,24 +6,32 @@ export class RazorpayService {
 
   constructor() {
     this.razorpay = new Razorpay({
-      key_id: process.env.RAZORPAY_KEY_ID!,
+      key_id: process.env.RAZORPAY_KEY_ID || "rzp_test_RgHzFPBMSwnKhe",
       key_secret: process.env.RAZORPAY_KEY_SECRET!,
     });
   }
 
-  async createOrder(amount: number, currency: string = "INR"): Promise<any> {
+  async createOrder(
+    amount: number,
+    orderId: string,
+    customerDetails: any
+  ): Promise<any> {
     try {
       const options = {
-        amount: amount * 100, // Convert to paise
-        currency,
-        receipt: `receipt_${Date.now()}`,
-        payment_capture: 1,
+        amount: Math.round(amount * 100), // Convert to paise
+        currency: "INR",
+        receipt: orderId,
+        notes: {
+          orderId: orderId,
+          customerName: customerDetails.name,
+          customerPhone: customerDetails.phone,
+        },
       };
 
       const order = await this.razorpay.orders.create(options);
       return order;
-    } catch (error) {
-      throw new Error("Failed to create Razorpay order");
+    } catch (error: any) {
+      throw new Error(`Razorpay order creation failed: ${error.message}`);
     }
   }
 
@@ -32,7 +40,7 @@ export class RazorpayService {
     paymentId: string,
     signature: string
   ): boolean {
-    const body = orderId + "|" + paymentId;
+    const body = `${orderId}|${paymentId}`;
 
     const expectedSignature = crypto
       .createHmac("sha256", process.env.RAZORPAY_KEY_SECRET!)
@@ -45,8 +53,8 @@ export class RazorpayService {
   async getPaymentDetails(paymentId: string): Promise<any> {
     try {
       return await this.razorpay.payments.fetch(paymentId);
-    } catch (error) {
-      throw new Error("Failed to fetch payment details");
+    } catch (error: any) {
+      throw new Error(`Failed to fetch payment details: ${error.message}`);
     }
   }
 

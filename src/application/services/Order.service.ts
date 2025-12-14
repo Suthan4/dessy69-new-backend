@@ -7,59 +7,118 @@ import {
 import { IOrderService } from "../interface/IService";
 import { CouponRepository } from "@/infrastructure/database/repositories/CouponRepository";
 import { OrderServiceMapper } from "../mappers/OrderServiceMapper";
-import { Order, OrderItem, OrderStatus } from "@/domain/entities/Order.entity";
-import { ObjectId } from "mongodb";
+import {
+  Order,
+  OrderItem,
+  OrderStatus,
+  PaymentStatus,
+} from "@/domain/entities/Order.entity";
+import { ProductRepository } from "@/infrastructure/database/repositories/ProductRepository";
+import { SocketManager } from "@/infrastructure/socket/SocketManager";
 
 export class OrderService implements IOrderService {
   constructor(
     private orderRepository: OrderRepository,
-    private couponRepository: CouponRepository
+    private couponRepository: CouponRepository,
+    private productRepository: ProductRepository
   ) {}
-  async createOrder(
-    userId: string,
-    orderData: CreateOrderDTO
-  ): Promise<OrderResponseDTO> {
-    let discount = 0;
 
+  private generateOrderId(): string {
+    const prefix = "DESSY";
+    const timestamp = Date.now().toString(36).toUpperCase();
+    const random = Math.random().toString(36).substring(2, 6).toUpperCase();
+    return `${prefix}${timestamp}${random}`;
+  }
+
+  async createOrder(orderData: CreateOrderDTO): Promise<OrderResponseDTO> {
+    let subtotal = 0;
+    const items: OrderItem[] = [];
+
+    // Validate items and calculate subtotal
+    for (const item of orderData.items) {
+      const product = await this.productRepository.findById(
+        item.menuItemId.toString()
+      );
+
+      if (!product || !product.isAvailable) {
+        throw new Error(`Product ${item.name} is not available`);
+      }
+
+      const variant = product.variants.find((v) => v.name === item.variantName);
+      if (!variant || !variant.isAvailable) {
+        throw new Error(`Variant ${item.variantName} is not available`);
+      }
+
+      const itemTotal = variant.price * item.quantity;
+      subtotal += itemTotal;
+
+      items.push(
+        new OrderItem(
+          item.menuItemId,
+          item.name,
+          item.variantName,
+          variant.price,
+          item.quantity,
+          itemTotal
+        )
+      );
+
+      // Increment product popularity
+      await this.productRepository.incrementPopularity(product.id);
+    }
+
+    // Apply coupon if provided
+    let discount = 0;
     if (orderData.couponCode) {
       const coupon = await this.couponRepository.findByCode(
         orderData.couponCode
       );
-      if (coupon && coupon.canBeUsed(orderData.subtotal)) {
-        discount = coupon.calculateDiscount(orderData.subtotal);
-        await this.couponRepository.incerementUsage(coupon.id);
+      if (!coupon || !coupon.canBeUsed(subtotal)) {
+        throw new Error("Invalid or expired coupon");
       }
+      discount = coupon.calculateDiscount(subtotal);
     }
 
-    const items = orderData.items.map(
-      (item) =>
-        new OrderItem(
-          item.productId,
-          item.productName,
-          item.quantity,
-          item.basePrice,
-          item.variant,
-          item.totalPrice
-        )
-    );
+    const total = subtotal - discount;
+    const orderId = this.generateOrderId();
 
     const order = new Order(
       "",
-      new ObjectId(userId),
+      orderId,
+      orderData.customerDetails,
       items,
-      orderData.subtotal,
+      subtotal,
       discount,
-      orderData.subtotal - discount,
+      total,
       OrderStatus.PENDING,
-      orderData.paymentId,
+      PaymentStatus.PENDING,
+      undefined,
+      undefined,
+      undefined,
+      undefined,
       orderData.couponCode || null,
-      orderData.cancelReason || null,
+      orderData.notes,
+      undefined,
+      [
+        {
+          status: OrderStatus.PENDING,
+          timestamp: new Date(),
+          notes: "Order created",
+        },
+      ],
       new Date(),
       new Date()
     );
 
     const created = await this.orderRepository.create(order);
-    return OrderServiceMapper.mapToDTO(created);
+    const dto = OrderServiceMapper.mapToDTO(created);
+
+    // Emit socket events
+    const socketManager = SocketManager.getInstance();
+    socketManager.emitToAdmins("order:new", dto);
+    socketManager.broadcast("order:created", { orderId: created.orderId });
+
+    return dto;
   }
 
   async getOrderById(id: string): Promise<OrderResponseDTO> {
@@ -68,8 +127,14 @@ export class OrderService implements IOrderService {
     return OrderServiceMapper.mapToDTO(order);
   }
 
-  async getUserOrders(userId: string): Promise<OrderResponseDTO[]> {
-    const orders = await this.orderRepository.findByUserId(userId);
+  async getOrderByOrderId(orderId: string): Promise<OrderResponseDTO> {
+    const order = await this.orderRepository.findByOrderId(orderId);
+    if (!order) throw new Error("Order not found");
+    return OrderServiceMapper.mapToDTO(order);
+  }
+
+  async getUserOrders(phone: string): Promise<OrderResponseDTO[]> {
+    const orders = await this.orderRepository.findByCustomerPhone(phone);
     return orders.map((o) => OrderServiceMapper.mapToDTO(o));
   }
 
@@ -79,33 +144,93 @@ export class OrderService implements IOrderService {
   }
 
   async updateOrderStatus(
-    id: string,
-    status: string
+    orderId: string,
+    status: string,
+    notes?: string,
+    estimatedTime?: number
   ): Promise<OrderResponseDTO> {
-    const order = await this.orderRepository.findById(id);
+    const order = await this.orderRepository.findByOrderId(orderId);
     if (!order) throw new Error("Order not found");
 
-    order.updateStatus(status as OrderStatus);
-    const updated = await this.orderRepository.updateStatus(
-      id,
-      status as OrderStatus
-    );
+    order.updateStatus(status as OrderStatus, notes);
+    if (estimatedTime) {
+      order.estimatedTime = estimatedTime;
+    }
+
+    const updated = await this.orderRepository.update(order.id, order);
     if (!updated) throw new Error("Failed to update order");
-    return OrderServiceMapper.mapToDTO(updated);
+
+    const dto = OrderServiceMapper.mapToDTO(updated);
+
+    // Emit socket events
+    const socketManager = SocketManager.getInstance();
+    socketManager.emitToAdmins("order:updated", dto);
+    socketManager.emitOrderUpdate(orderId, "order:status", {
+      status,
+      estimatedTime,
+      notes,
+      timestamp: new Date(),
+    });
+    socketManager.broadcast("order:tracking", { orderId, status });
+
+    return dto;
   }
 
-  async cancelOrder(id: string, reason: string): Promise<OrderResponseDTO> {
-    const order = await this.orderRepository.findById(id);
+  async updatePaymentStatus(
+    orderId: string,
+    razorpayOrderId: string,
+    razorpayPaymentId: string,
+    razorpaySignature: string
+  ): Promise<OrderResponseDTO> {
+    const order = await this.orderRepository.findByOrderId(orderId);
     if (!order) throw new Error("Order not found");
 
-    order.cancelReason = reason;
-    const updated = await this.orderRepository.update(id, {
-      status: OrderStatus.CANCELLED,
-      cancelReason: reason,
-    } as Order);
+    order.updatePaymentStatus(
+      PaymentStatus.SUCCESS,
+      razorpayOrderId,
+      razorpayPaymentId,
+      razorpaySignature
+    );
 
+    const updated = await this.orderRepository.update(order.id, order);
+    if (!updated) throw new Error("Failed to update payment status");
+
+    // Increment coupon usage
+    if (order.couponCode) {
+      const coupon = await this.couponRepository.findByCode(order.couponCode);
+      if (coupon) {
+        await this.couponRepository.incerementUsage(coupon.id);
+      }
+    }
+
+    const dto = OrderServiceMapper.mapToDTO(updated);
+
+    // Emit socket events
+    const socketManager = SocketManager.getInstance();
+    socketManager.emitToAdmins("order:payment_success", dto);
+    socketManager.emitOrderUpdate(orderId, "payment:success", { orderId });
+
+    return dto;
+  }
+
+  async cancelOrder(
+    orderId: string,
+    reason: string
+  ): Promise<OrderResponseDTO> {
+    const order = await this.orderRepository.findByOrderId(orderId);
+    if (!order) throw new Error("Order not found");
+
+    order.cancel(reason);
+    const updated = await this.orderRepository.update(order.id, order);
     if (!updated) throw new Error("Failed to cancel order");
-    return OrderServiceMapper.mapToDTO(updated);
+
+    const dto = OrderServiceMapper.mapToDTO(updated);
+
+    // Emit socket event
+    const socketManager = SocketManager.getInstance();
+    socketManager.emitOrderUpdate(orderId, "order:cancelled", dto);
+
+    return dto;
   }
 
   async getTodayOrders(): Promise<OrderResponseDTO[]> {
@@ -118,5 +243,42 @@ export class OrderService implements IOrderService {
     endDate: Date
   ): Promise<OrderStatisticsDTO[]> {
     return await this.orderRepository.getIOrderStatistics(startDate, endDate);
+  }
+
+  async getOrderStats(): Promise<{
+    totalOrders: number;
+    pendingOrders: number;
+    completedOrders: number;
+    totalRevenue: number;
+    todayOrders: number;
+  }> {
+    const [allOrders, todayOrdersList] = await Promise.all([
+      this.orderRepository.findAll(),
+      this.orderRepository.getTodayIOrders(),
+    ]);
+
+    const pendingOrders = allOrders.filter((o) =>
+      [
+        OrderStatus.PENDING,
+        OrderStatus.CONFIRMED,
+        OrderStatus.PREPARING,
+      ].includes(o.status)
+    ).length;
+
+    const completedOrders = allOrders.filter(
+      (o) => o.status === OrderStatus.DELIVERED
+    ).length;
+
+    const totalRevenue = allOrders
+      .filter((o) => o.paymentStatus === PaymentStatus.SUCCESS)
+      .reduce((sum, o) => sum + o.total, 0);
+
+    return {
+      totalOrders: allOrders.length,
+      pendingOrders,
+      completedOrders,
+      totalRevenue,
+      todayOrders: todayOrdersList.length,
+    };
   }
 }

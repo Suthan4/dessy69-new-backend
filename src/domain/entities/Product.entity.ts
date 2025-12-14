@@ -1,14 +1,16 @@
+import { Types } from "mongoose";
+
 export class Product {
   constructor(
     public readonly id: string,
     public name: string,
     public description: string,
-    public category: string,
-    public basePrice: number,
+    public categoryId: Types.ObjectId,
     public image: string,
     public variants: ProductVariant[],
     public isAvailable: boolean,
-    public isPopular: boolean,
+    public popularity: number,
+    public tags: string[],
     public createdAt: Date,
     public updatedAt: Date
   ) {}
@@ -22,12 +24,17 @@ export class Product {
     this.variants.push(variant);
     this.updatedAt = new Date();
   }
+
+  incrementPopularity(): void {
+    this.popularity += 1;
+    this.updatedAt = new Date();
+  }
 }
 
 export class ProductVariant {
   constructor(
     public name: string,
-    public additionalPrice: number,
+    public price: number,
     public isAvailable: boolean = true
   ) {}
 }
