@@ -12,6 +12,7 @@ const config = {
   sourcemap: true,
   minify: !isWatch,
   treeShaking: true,
+  metafile: true,
 };
 
 async function build() {
