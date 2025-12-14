@@ -1,5 +1,5 @@
 import { Server as SocketServer, Socket } from "socket.io";
-import { Server as HTTPServer } from "http";
+import { Server as HTTPServer } from "https";
 
 export class SocketManager {
   private static instance: SocketManager;
@@ -17,9 +17,11 @@ export class SocketManager {
   public initialize(server: HTTPServer): SocketServer {
     this.io = new SocketServer(server, {
       cors: {
-        origin: process.env.CLIENT_URL || "http://localhost:3000",
+        origin: process.env.SOCKETMANAGER_PATH || "https://localhost:3000",
         methods: ["GET", "POST"],
+        credentials:true,
       },
+      transports: ["websocket"],
     });
 
     this.setupEventHandlers();

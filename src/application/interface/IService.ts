@@ -4,6 +4,7 @@ import {
   RegisterDTO,
   UserResponseDTO,
 } from "../dtos/AuthDTO";
+import { CategoryBreadcrumbDTO, CategoryResponseDTO, CreateCategoryDTO, UpdateCategoryDTO } from "../dtos/CategoryDTO";
 import {
   CouponResponseDTO,
   CouponValidationDTO,
@@ -86,4 +87,19 @@ export interface IAuthService {
   register(data: RegisterDTO): Promise<AuthResponseDTO>;
   login(credentials: LoginDTO): Promise<AuthResponseDTO>;
   verifyToken(token: string): Promise<UserResponseDTO>;
+}
+
+export interface ICategoryService {
+  createCategory(data: CreateCategoryDTO): Promise<CategoryResponseDTO>;
+  getAllCategories(includeInactive?: boolean): Promise<CategoryResponseDTO[]>;
+  getCategoryById(id: string): Promise<CategoryResponseDTO>;
+  updateCategory(
+    id: string,
+    data: UpdateCategoryDTO
+  ): Promise<CategoryResponseDTO>;
+  getCategoryBreadcrumb(categoryId: string): Promise<CategoryBreadcrumbDTO[]>;
+  deleteCategory(id: string): Promise<boolean>;
+  getRootCategories(): Promise<CategoryResponseDTO[]>;
+  getChildCategories(parentId: string): Promise<CategoryResponseDTO[]>;
+  getCategoryHierarchy(): Promise<any>;
 }

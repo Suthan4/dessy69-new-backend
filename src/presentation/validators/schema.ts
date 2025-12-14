@@ -21,6 +21,10 @@ export const CategorySchema = z.object({
   description: z.string().optional(),
   image: z.string().url().optional(),
   isActive: z.boolean().optional(),
+  parentId: z
+    .string()
+    .regex(/^[0-9a-fA-F]{24}$/, "Invalid parent category ID")
+    .optional(),
 });
 
 // Product Schemas

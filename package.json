@@ -6,15 +6,16 @@
   "scripts": {
     "dev": "tsx watch src/index.ts",
     "build": "tsx esbuild.config.js",
+    "seed": "tsx src/scripts/seedMenu.ts",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "keywords": [],
   "author": "",
   "license": "ISC",
   "dependencies": {
+    "@suthan4/core-package": "^1.0.0",
     "bcrypt": "^6.0.0",
     "cors": "^2.8.5",
-    "dessy69-core-packages": "git+https://Suthan4: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@github.com/Suthan4/dess69-core-packages.git",
     "dotenv": "^17.2.3",
     "express": "^5.2.1",
     "express-rate-limit": "^8.2.1",
