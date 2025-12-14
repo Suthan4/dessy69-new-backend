@@ -1,5 +1,5 @@
 import express, { Express, Request, Response } from "express";
-import { applySecurity } from "dessy69-core-packages";
+import { applySecurity } from "@suthan4/core-package";
 import { AuthRoutes } from "./presentation/routes/auth.routes";
 import { ProductRoutes } from "./presentation/routes/product.routes";
 import { OrderRoutes } from "./presentation/routes/order.routes";

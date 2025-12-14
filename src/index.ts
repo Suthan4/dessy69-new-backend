@@ -1,7 +1,7 @@
 import "dotenv/config";
 
 import { Application } from "./app";
-import { startServer } from "dessy69-core-packages";
+import { startServer } from "@suthan4/core-package";
 import { DatabaseConnection } from "./infrastructure/database/DatabaseConnection";
 
 async function bootstrap() {
