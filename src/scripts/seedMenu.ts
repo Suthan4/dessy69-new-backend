@@ -1,7 +1,6 @@
-// src/scripts/seedMenu.ts
-import { DatabaseConnection } from "@/infrastructure/database/DatabaseConnection";
-import { CategoryModel } from "@/infrastructure/database/models/Category.model";
-import { ProductModel } from "@/infrastructure/database/models/Product.model";
+import { CategoryModel } from "@/modules/Category.Module/infrastructure/models/Category.model";
+import { ProductModel } from "@/modules/Product.Module/infrastructure/models/Product.model";
+import { DatabaseConnection } from "@/shared/database/DatabaseConnection";
 import "dotenv/config";
 import mongoose from "mongoose";
 
@@ -726,12 +725,14 @@ async function seedHierarchicalMenu() {
 
     const category = await CategoryModel.create({
       name: categoryData.name,
-      description: categoryData.description,
-      image: categoryData.image,
+      ...(categoryData.description && {
+        description: categoryData.description,
+      }),
+      ...(categoryData.image && { image: categoryData.image }),
       isActive: true,
       parentId: parentId,
       level: level,
-      path: "temp", // Temporary, will update after getting ID
+      path: "temp", 
     });
 
     // Update path with actual category ID

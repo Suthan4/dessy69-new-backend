@@ -1,14 +1,14 @@
 import express, { Express, Request, Response } from "express";
 import { applySecurity } from "@suthan4/core-package";
-import { AuthRoutes } from "./presentation/routes/auth.routes";
-import { ProductRoutes } from "./presentation/routes/product.routes";
-import { OrderRoutes } from "./presentation/routes/order.routes";
-import { CouponRoutes } from "./presentation/routes/coupon.routes";
 import { createServer, Server } from "https";
-import { SocketManager } from "./infrastructure/socket/SocketManager";
-import { CategoryRoutes } from "./presentation/routes/category.routes";
-import { PaymentRoutes } from "./presentation/routes/payment.route";
+import { PaymentRoutes } from "./modules/Payment.Module/presentation/routes/payment.route";
 import cors from "cors";
+import { AuthRoutes } from "./modules/Auth.Module/presentation/routes/auth.routes";
+import { CategoryRoutes } from "./modules/Category.Module/presentation/routes/category.routes";
+import { ProductRoutes } from "./modules/Product.Module/presentation/routes/product.routes";
+import { OrderRoutes } from "./modules/Order.Module/presentation/routes/order.routes";
+import { CouponRoutes } from "./modules/Coupon.Module/presentation/routes/coupon.routes";
+import { SocketManager } from "./shared/infrastructure/SocketManager";
 
 export class Application {
   private app: Express;

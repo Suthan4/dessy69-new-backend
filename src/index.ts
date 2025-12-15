@@ -2,7 +2,7 @@ import "dotenv/config";
 
 import { Application } from "./app";
 import { startServer } from "@suthan4/core-package";
-import { DatabaseConnection } from "./infrastructure/database/DatabaseConnection";
+import { DatabaseConnection } from "./shared/database/DatabaseConnection";
 
 async function bootstrap() {
   const app = new Application();
