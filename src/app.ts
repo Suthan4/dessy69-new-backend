@@ -9,7 +9,7 @@ import { ProductRoutes } from "./modules/Product.Module/presentation/routes/prod
 import { OrderRoutes } from "./modules/Order.Module/presentation/routes/order.routes";
 import { CouponRoutes } from "./modules/Coupon.Module/presentation/routes/coupon.routes";
 import { SocketManager } from "./shared/infrastructure/SocketManager";
-
+  
 export class Application {
   private app: Express;
   private server: Server;
