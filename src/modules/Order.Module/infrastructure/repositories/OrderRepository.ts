@@ -1,101 +1,132 @@
-
-import { IOrderDocument, OrderModel } from "../models/Order.model";
-import { OrderMapper } from "../mappers/Order.mapper";
-import { IOrderRepository } from "@/modules/Order.Module/domain/interfaces/IOrderRepository";
-import { Order, OrderStatus } from "@/modules/Order.Module/domain/entities/Order.entity";
+import { OrderStatus, PaymentStatus } from "@/shared/types/common.types";
+import { OrderEntity } from "../../domain/entities/Order.entity";
+import { IOrderRepository } from "../../domain/interfaces/IOrderRepository";
+import { OrderModel } from "../models/Order.model";
 
 export class OrderRepository implements IOrderRepository {
-  async findByOrderId(orderId: string): Promise<Order | null> {
-    const doc = await OrderModel.findOne({ orderId });
-    return doc ? OrderMapper.mapToEntity(doc) : null;
+  async create(order: OrderEntity): Promise<OrderEntity> {
+    const doc = await OrderModel.create({
+      userId: order.userId,
+      items: order.items,
+      subtotal: order.subtotal,
+      discount: order.discount,
+      deliveryCharge: order.deliveryCharge,
+      total: order.total,
+      status: order.status,
+      paymentStatus: order.paymentStatus,
+      couponCode: order.couponCode,
+      deliveryAddress: order.deliveryAddress,
+      phone: order.phone,
+      notes: order.notes,
+      razorpayOrderId: order.razorpayOrderId,
+      razorpayPaymentId: order.razorpayPaymentId,
+      statusHistory: order.statusHistory,
+    });
+    return this.toEntity(doc);
   }
 
-  async findByCustomerPhone(phone: string): Promise<Order[]> {
-    const docs = await OrderModel.find({
-      "customerDetails.phone": phone,
-    }).sort({ createdAt: -1 });
-    return docs.map((doc) => OrderMapper.mapToEntity(doc));
+  async findById(id: string): Promise<OrderEntity | null> {
+    const doc = await OrderModel.findById(id).populate("userId", "name email");
+    return doc ? this.toEntity(doc) : null;
   }
 
-  async findByStatus(status: OrderStatus): Promise<Order[]> {
-    const docs = await OrderModel.find({ status }).sort({ createdAt: -1 });
-    return docs.map((doc) => OrderMapper.mapToEntity(doc));
+  async findByUserId(
+    userId: string,
+    page: number,
+    limit: number
+  ): Promise<{ orders: OrderEntity[]; total: number }> {
+    const skip = (page - 1) * limit;
+    const [docs, total] = await Promise.all([
+      OrderModel.find({ userId })
+        .sort({ createdAt: -1 })
+        .skip(skip)
+        .limit(limit),
+      OrderModel.countDocuments({ userId }),
+    ]);
+    return { orders: docs.map((d) => this.toEntity(d)), total };
   }
 
-  async updateStatus(id: string, status: OrderStatus): Promise<Order | null> {
+  async findAll(
+    page: number,
+    limit: number,
+    filters: any = {}
+  ): Promise<{ orders: OrderEntity[]; total: number }> {
+    const skip = (page - 1) * limit;
+    const query: any = {};
+
+    if (filters.status) query.status = filters.status;
+    if (filters.paymentStatus) query.paymentStatus = filters.paymentStatus;
+    if (filters.userId) query.userId = filters.userId;
+
+    const [docs, total] = await Promise.all([
+      OrderModel.find(query)
+        .sort({ createdAt: -1 })
+        .skip(skip)
+        .limit(limit)
+        .populate("userId", "name email"),
+      OrderModel.countDocuments(query),
+    ]);
+    return { orders: docs.map((d) => this.toEntity(d)), total };
+  }
+
+  async updateStatus(
+    id: string,
+    status: OrderStatus,
+    note?: string
+  ): Promise<OrderEntity | null> {
     const doc = await OrderModel.findByIdAndUpdate(
       id,
       {
         status,
-        updatedAt: new Date(),
+        $push: { statusHistory: { status, timestamp: new Date(), note } },
       },
       { new: true }
     );
-    return doc ? OrderMapper.mapToEntity(doc) : null;
+    return doc ? this.toEntity(doc) : null;
   }
 
-  async getTodayIOrders(): Promise<Order[]> {
-    const startOfDay = new Date();
-    startOfDay.setHours(0, 0, 0, 0);
-    const docs = await OrderModel.find({
-      createdAt: { $gte: startOfDay },
-    }).sort({ createdAt: -1 });
-    return docs.map((doc) => OrderMapper.mapToEntity(doc));
+  async updatePaymentStatus(
+    id: string,
+    paymentStatus: PaymentStatus,
+    razorpayPaymentId?: string
+  ): Promise<OrderEntity | null> {
+    const updateData: any = { paymentStatus };
+    if (razorpayPaymentId) updateData.razorpayPaymentId = razorpayPaymentId;
+
+    const doc = await OrderModel.findByIdAndUpdate(id, updateData, {
+      new: true,
+    });
+    return doc ? this.toEntity(doc) : null;
   }
 
-  async getIOrderStatistics(startDate: Date, endDate: Date): Promise<any> {
-    return await OrderModel.aggregate([
-      {
-        $match: {
-          createdAt: { $gte: startDate, $lte: endDate },
-        },
-      },
-      {
-        $group: {
-          _id: "$status",
-          count: { $sum: 1 },
-          totalRevenue: { $sum: "$total" },
-        },
-      },
-      {
-        $project: {
-          status: "$_id",
-          count: 1,
-          totalRevenue: 1,
-          _id: 0,
-        },
-      },
-    ]);
+  async update(
+    id: string,
+    data: Partial<OrderEntity>
+  ): Promise<OrderEntity | null> {
+    const doc = await OrderModel.findByIdAndUpdate(id, data, { new: true });
+    return doc ? this.toEntity(doc) : null;
   }
 
-  async create(entity: Order): Promise<Order> {
-    const doc = new OrderModel(OrderMapper.toPersistence(entity));
-    await doc.save();
-    return OrderMapper.mapToEntity(doc);
-  }
-
-  async findAll(): Promise<Order[]> {
-    const docs = await OrderModel.find().sort({ createdAt: -1 });
-    return docs.map((doc) => OrderMapper.mapToEntity(doc));
-  }
-
-  async findById(id: string): Promise<Order | null> {
-    const doc = await OrderModel.findById(id);
-    return doc ? OrderMapper.mapToEntity(doc) : null;
-  }
-
-  async update(id: string, payload: Partial<Order>): Promise<Order | null> {
-    const updateData = OrderMapper.toPersistence(payload as Order);
-    const doc = await OrderModel.findByIdAndUpdate(
-      id,
-      { ...updateData, updatedAt: new Date() },
-      { new: true }
+  private toEntity(doc: any): OrderEntity {
+    return new OrderEntity(
+      doc._id.toString(),
+      doc.userId._id ? doc.userId._id.toString() : doc.userId.toString(),
+      doc.items,
+      doc.subtotal,
+      doc.discount,
+      doc.deliveryCharge,
+      doc.total,
+      doc.status,
+      doc.paymentStatus,
+      doc.couponCode,
+      doc.deliveryAddress,
+      doc.phone,
+      doc.notes,
+      doc.razorpayOrderId,
+      doc.razorpayPaymentId,
+      doc.statusHistory,
+      doc.createdAt,
+      doc.updatedAt
     );
-    return doc ? OrderMapper.mapToEntity(doc) : null;
-  }
-
-  async delete(id: string): Promise<boolean> {
-    const result = await OrderModel.findByIdAndDelete(id);
-    return !!result;
   }
 }

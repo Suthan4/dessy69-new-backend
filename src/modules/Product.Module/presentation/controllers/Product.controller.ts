@@ -1,38 +1,10 @@
-import { IProductService } from "@/modules/Product.Module/application/interface/IProductService";
 import { Request, Response } from "express";
+import { ProductService } from "../../application/services/Product.service";
 
 export class ProductController {
-  constructor(private productService: IProductService) {}
+  constructor(private productService: ProductService) {}
 
-  getAllProducts = async (req: Request, res: Response) => {
-    try {
-      const { category } = req.query;
-
-      let products;
-      if (category) {
-        products = await this.productService.getProductsByCategory(
-          category as string
-        );
-      } else {
-        products = await this.productService.getAllProducts();
-      }
-
-      res.json({ success: true, data: products });
-    } catch (error: any) {
-      res.status(500).json({ success: false, message: error.message });
-    }
-  };
-
-  getProductById = async (req: Request, res: Response) => {
-    try {
-      const product = await this.productService.getProductById(req.params.id as string);
-      res.json({ success: true, data: product });
-    } catch (error: any) {
-      res.status(404).json({ success: false, message: error.message });
-    }
-  };
-
-  createProduct = async (req: Request, res: Response) => {
+  createProduct = async (req: Request, res: Response): Promise<void> => {
     try {
       const product = await this.productService.createProduct(req.body);
       res.status(201).json({ success: true, data: product });
@@ -41,58 +13,103 @@ export class ProductController {
     }
   };
 
-  updateProduct = async (req: Request, res: Response) => {
+  getProducts = async (req: Request, res: Response): Promise<void> => {
+    try {
+      const page = parseInt(req.query.page as string) || 1;
+      const limit = parseInt(req.query.limit as string) || 10;
+      const filters = {
+        isAvailable: req.query.isAvailable === "true",
+        categoryId: req.query.categoryId as string,
+        minPrice: req.query.minPrice
+          ? parseFloat(req.query.minPrice as string)
+          : undefined,
+        maxPrice: req.query.maxPrice
+          ? parseFloat(req.query.maxPrice as string)
+          : undefined,
+      };
+
+      const result = await this.productService.getProducts(
+        page,
+        limit,
+        filters
+      );
+      res.json({ success: true, data: result });
+    } catch (error: any) {
+      res.status(500).json({ success: false, message: error.message });
+    }
+  };
+
+  getProductById = async (req: Request, res: Response): Promise<void> => {
+    try {
+      const product = await this.productService.getProductById(req.params.id as string);
+      if (!product) {
+        res.status(404).json({ success: false, message: "Product not found" });
+        return;
+      }
+      res.json({ success: true, data: product });
+    } catch (error: any) {
+      res.status(500).json({ success: false, message: error.message });
+    }
+  };
+
+  updateProduct = async (req: Request, res: Response): Promise<void> => {
     try {
       const product = await this.productService.updateProduct(
         req.params.id as string,
         req.body
       );
+      if (!product) {
+        res.status(404).json({ success: false, message: "Product not found" });
+        return;
+      }
       res.json({ success: true, data: product });
     } catch (error: any) {
       res.status(400).json({ success: false, message: error.message });
     }
   };
 
-  deleteProduct = async (req: Request, res: Response) => {
+  updateAvailability = async (req: Request, res: Response): Promise<void> => {
     try {
-      await this.productService.deleteProduct(req.params.id as string);
+      const { isAvailable } = req.body;
+      const product = await this.productService.updateProductAvailability(
+        req.params.id as string,
+        isAvailable
+      );
+      if (!product) {
+        res.status(404).json({ success: false, message: "Product not found" });
+        return;
+      }
+      res.json({ success: true, data: product });
+    } catch (error: any) {
+      res.status(400).json({ success: false, message: error.message });
+    }
+  };
+
+  deleteProduct = async (req: Request, res: Response): Promise<void> => {
+    try {
+      const result = await this.productService.deleteProduct(req.params.id as string);
+      if (!result) {
+        res.status(404).json({ success: false, message: "Product not found" });
+        return;
+      }
       res.json({ success: true, message: "Product deleted" });
     } catch (error: any) {
       res.status(400).json({ success: false, message: error.message });
     }
   };
 
-  getPopularProducts = async (req: Request, res: Response) => {
+  searchProducts = async (req: Request, res: Response): Promise<void> => {
     try {
-      const products = await this.productService.getPopularProducts();
-      res.json({ success: true, data: products });
-    } catch (error: any) {
-      res.status(500).json({ success: false, message: error.message });
-    }
-  };
+      const query = req.query.q as string;
+      const page = parseInt(req.query.page as string) || 1;
+      const limit = parseInt(req.query.limit as string) || 10;
 
-  updateAvailability = async (req: Request, res: Response) => {
-    try {
-      await this.productService.updateAvailability(
-        req.params.id as string,
-        req.body.isAvailable
+      const result = await this.productService.searchProducts(
+        query,
+        page,
+        limit
       );
-      res.json({ success: true });
-    } catch (error: any) {
-      res.status(400).json({ success: false, message: error.message });
-    }
-  };
-
-  searchProducts = async (req: Request, res: Response) => {
-    try {
-      const { q } = req.query;
-      if (!q) {
-        return res
-          .status(400)
-          .json({ success: false, message: "Search query required" });
-      }
-      const products = await this.productService.searchProducts(q as string);
-      res.json({ success: true, data: products });
+      res.json({ success: true, data: result });
     } catch (error: any) {
       res.status(500).json({ success: false, message: error.message });
     }

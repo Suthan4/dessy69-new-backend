@@ -1,82 +1,61 @@
-
+import { AuthMiddleware } from "@/shared/middleware/auth.middleware";
+import {
+  CreateCouponSchema,
+  UpdateCouponSchema,
+  ValidateCouponSchema,
+  CouponIdSchema,
+  CouponQuerySchema,
+} from "../../application/validators/coupon.validators";
+import { UserRole } from "@/shared/types/common.types";
+import { ValidationMiddleware } from "@/shared/middleware/validation.middleware";
+import { CouponController } from "../controllers/Coupon.controllers";
 import { Router } from "express";
-import { CouponSchema } from "../validators/schema";
-import { CouponService } from "@/modules/Coupon.Module/application/services/Coupon.service";
-import { CouponRepository } from "@/modules/Coupon.Module/infrastructure/repositories/CouponRepository";
-import { authenticate, authorizeAdmin } from "@/shared/middleware/auth.middleware";
-import { validate } from "@/shared/middleware/validation.middleware";
 
 export class CouponRoutes {
-  public router: Router;
-  private service: CouponService;
-
-  constructor() {
-    this.router = Router();
-    const repository = new CouponRepository();
-    this.service = new CouponService(repository);
-    this.setupRoutes();
-  }
-
-  private setupRoutes(): void {
-    // Customer routes
-    this.router.post("/validate", authenticate, async (req, res) => {
-      try {
-        const result = await this.service.validateCoupon(
-          req.body.code,
-          req.body.orderAmount
-        );
-        res.json({ success: true, data: result });
-      } catch (error: any) {
-        res.status(400).json({ success: false, message: error.message });
-      }
-    });
-
-    // Admin routes
-    this.router.get("/", authenticate, authorizeAdmin, async (req, res) => {
-      try {
-        const coupons = await this.service.getAllCoupons();
-        res.json({ success: true, data: coupons });
-      } catch (error: any) {
-        res.status(500).json({ success: false, message: error.message });
-      }
-    });
-
-    this.router.post(
+  static create(controller: CouponController): Router {
+    const router = Router();
+    router.post(
       "/",
-      authenticate,
-      authorizeAdmin,
-      validate(CouponSchema),
-      async (req, res) => {
-        try {
-          const coupon = await this.service.createCoupon(req.body);
-          res.status(201).json({ success: true, data: coupon });
-        } catch (error: any) {
-          res.status(400).json({ success: false, message: error.message });
-        }
-      }
+      AuthMiddleware.authenticate,
+      AuthMiddleware.authorize(UserRole.ADMIN),
+      ValidationMiddleware.validateBody(CreateCouponSchema),
+      controller.createCoupon
     );
-
-    this.router.put("/:id", authenticate, authorizeAdmin, async (req, res) => {
-      try {
-        const coupon = await this.service.updateCoupon(req.params.id as string, req.body);
-        res.json({ success: true, data: coupon });
-      } catch (error: any) {
-        res.status(400).json({ success: false, message: error.message });
-      }
-    });
-
-    this.router.delete(
+    router.post(
+      "/validate",
+      AuthMiddleware.authenticate,
+      ValidationMiddleware.validateBody(ValidateCouponSchema),
+      controller.validateCoupon
+    );
+    router.get(
+      "/",
+      AuthMiddleware.authenticate,
+      AuthMiddleware.authorize(UserRole.ADMIN),
+      ValidationMiddleware.validateQuery(CouponQuerySchema),
+      controller.getCoupons
+    );
+    router.get(
       "/:id",
-      authenticate,
-      authorizeAdmin,
-      async (req, res) => {
-        try {
-          await this.service.deleteCoupon(req.params.id as string);
-          res.json({ success: true, message: "Coupon deleted" });
-        } catch (error: any) {
-          res.status(400).json({ success: false, message: error.message });
-        }
-      }
+      AuthMiddleware.authenticate,
+      AuthMiddleware.authorize(UserRole.ADMIN),
+      ValidationMiddleware.validateParams(CouponIdSchema),
+      controller.getCouponById
     );
+    router.put(
+      "/:id",
+      AuthMiddleware.authenticate,
+      AuthMiddleware.authorize(UserRole.ADMIN),
+      ValidationMiddleware.validateParams(CouponIdSchema),
+      ValidationMiddleware.validateBody(UpdateCouponSchema),
+      controller.updateCoupon
+    );
+    router.delete(
+      "/:id",
+      AuthMiddleware.authenticate,
+      AuthMiddleware.authorize(UserRole.ADMIN),
+      ValidationMiddleware.validateParams(CouponIdSchema),
+      controller.deleteCoupon
+    );
+    return router;
   }
 }

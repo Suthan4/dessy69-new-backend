@@ -1,67 +1,57 @@
 import { Router } from "express";
+import {
+  CreateOrderSchema,
+  UpdateOrderStatusSchema,
+  OrderQuerySchema,
+  OrderIdSchema,
+} from "../../application/validators/order.validators";
 import { OrderController } from "../controllers/Order.controller";
-import { OrderRepository } from "@/modules/Order.Module/infrastructure/repositories/OrderRepository";
-import { CouponRepository } from "@/modules/Coupon.Module/infrastructure/repositories/CouponRepository";
-import { ProductRepository } from "@/modules/Product.Module/infrastructure/repositories/ProductRepository";
-import { OrderService } from "@/modules/Order.Module/application/services/Order.service";
-import { validate } from "@/shared/middleware/validation.middleware";
-import { OrderSchema, VerifyPaymentSchema } from "@/modules/Product.Module/presentation/validators/schema";
-import { authenticate, authorizeAdmin } from "@/shared/middleware/auth.middleware";
-
+import { ValidationMiddleware } from "@/shared/middleware/validation.middleware";
+import { AuthMiddleware } from "@/shared/middleware/auth.middleware";
+import { UserRole } from "@/shared/types/common.types";
 
 export class OrderRoutes {
-  public router: Router;
-  private controller: OrderController;
-
-  constructor() {
-    this.router = Router();
-    const orderRepository = new OrderRepository();
-    const couponRepository = new CouponRepository();
-    const productRepository = new ProductRepository();
-    const service = new OrderService(
-      orderRepository,
-      couponRepository,
-      productRepository
-    );
-    this.controller = new OrderController(service);
-    this.setupRoutes();
-  }
-
-  private setupRoutes(): void {
-    // Public/Customer routes
-    this.router.post("/", validate(OrderSchema), this.controller.createOrder);
-    this.router.post(
-      "/verify-payment",
-      validate(VerifyPaymentSchema),
-      this.controller.verifyPayment
-    );
-    this.router.get("/track/:orderId", this.controller.getOrderByOrderId);
-    this.router.get("/customer", this.controller.getUserOrders);
-
-    // Admin routes
-    this.router.get(
+  static create(controller: OrderController): Router {
+    const router = Router();
+    router.post(
       "/",
-      authenticate,
-      authorizeAdmin,
-      this.controller.getAllOrders
+      AuthMiddleware.authenticate,
+      ValidationMiddleware.validateBody(CreateOrderSchema),
+      controller.createOrder
     );
-    this.router.get(
-      "/stats",
-      authenticate,
-      authorizeAdmin,
-      this.controller.getOrderStats
+    router.get(
+      "/my-orders",
+      AuthMiddleware.authenticate,
+      ValidationMiddleware.validateQuery(OrderQuerySchema),
+      controller.getMyOrders
     );
-    this.router.put(
-      "/:orderId/status",
-      authenticate,
-      authorizeAdmin,
-      this.controller.updateOrderStatus
+    router.get(
+      "/",
+      AuthMiddleware.authenticate,
+      AuthMiddleware.authorize(UserRole.ADMIN),
+      ValidationMiddleware.validateQuery(OrderQuerySchema),
+      controller.getAllOrders
     );
-    this.router.patch(
-      "/:orderId/cancel",
-      authenticate,
-      authorizeAdmin,
-      this.controller.cancelOrder
+    router.get(
+      "/:id",
+      AuthMiddleware.authenticate,
+      ValidationMiddleware.validateParams(OrderIdSchema),
+      controller.getOrderById
     );
+    router.patch(
+      "/:id/status",
+      AuthMiddleware.authenticate,
+      AuthMiddleware.authorize(UserRole.ADMIN),
+      ValidationMiddleware.validateParams(OrderIdSchema),
+      ValidationMiddleware.validateBody(UpdateOrderStatusSchema),
+      controller.updateOrderStatus
+    );
+    router.patch(
+      "/:id/cancel",
+      AuthMiddleware.authenticate,
+      ValidationMiddleware.validateParams(OrderIdSchema),
+      controller.cancelOrder
+    );
+    return router;
   }
 }

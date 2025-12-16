@@ -1,32 +1,45 @@
-export class Category {
+export class CategoryEntity {
   constructor(
     public readonly id: string,
-    public name: string,
-    public description: string | undefined,
-    public image: string | undefined,
-    public isActive: boolean,
-    public parentId: string | null,
-    public level: number,
-    public path: string,
-    public createdAt: Date,
-    public updatedAt: Date
+    public readonly name: string,
+    public readonly slug: string,
+    public readonly path: string, // Materialized Path: "/fruits/" or "/fruits/tropical/"
+    public readonly description?: string,
+    public readonly parentId?: string,
+    public readonly level: number = 0,
+    public readonly isActive: boolean = true,
+    public readonly createdAt: Date = new Date(),
+    public readonly updatedAt: Date = new Date()
   ) {}
 
-  activate(): void {
-    this.isActive = true;
-    this.updatedAt = new Date();
+  public getAncestorIds(): string[] {
+    if (!this.path || this.path === "/") return [];
+    return this.path.split("/").filter((id) => id !== "");
   }
 
-  deactivate(): void {
-    this.isActive = false;
-    this.updatedAt = new Date();
+  public isRootCategory(): boolean {
+    return this.level === 0;
   }
 
-  isRoot(): boolean {
-    return this.parentId === null && this.level === 0;
-  }
+  public static create(
+    name: string,
+    slug: string,
+    parentPath: string = "",
+    parentId?: string
+  ): CategoryEntity {
+    const level = parentPath
+      ? parentPath.split("/").filter((p) => p).length
+      : 0;
+    const path = parentPath ? `${parentPath}${slug}/` : `/${slug}/`;
 
-  isChild(): boolean {
-    return this.parentId !== null && this.level > 0;
+    return new CategoryEntity(
+      "",
+      name.trim(),
+      slug.toLowerCase(),
+      path,
+      undefined,
+      parentId,
+      level
+    );
   }
 }

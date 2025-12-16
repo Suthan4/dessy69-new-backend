@@ -1,11 +1,32 @@
-import { Product } from "../entities/Product.entity";
-import { IRepository } from "./IRepository";
+import { ProductEntity, ProductVariant } from "../entities/Product.entity";
 
-export interface IProductRepository extends IRepository<Product> {
-  findByCategoryId(categoryId: string): Promise<Product[]>;
-  findByPopular(): Promise<Product[]>;
-  findAvailable(): Promise<Product[]>;
-  updateAvailability(id: string, status: boolean): Promise<boolean>;
-  searchProducts(query: string): Promise<Product[]>;
-  incrementPopularity(id: string): Promise<boolean>;
+export interface IProductRepository {
+  create(product: ProductEntity): Promise<ProductEntity>;
+  findById(id: string): Promise<ProductEntity | null>;
+  findBySlug(slug: string): Promise<ProductEntity | null>;
+  findByCategoryId(
+    categoryId: string,
+    page: number,
+    limit: number
+  ): Promise<{ products: ProductEntity[]; total: number }>;
+  findAll(
+    page: number,
+    limit: number,
+    filters?: any
+  ): Promise<{ products: ProductEntity[]; total: number }>;
+  update(
+    id: string,
+    data: Partial<ProductEntity>
+  ): Promise<ProductEntity | null>;
+  updateVariant(
+    productId: string,
+    variantId: string,
+    data: Partial<ProductVariant>
+  ): Promise<ProductEntity | null>;
+  delete(id: string): Promise<boolean>;
+  search(
+    query: string,
+    page: number,
+    limit: number
+  ): Promise<{ products: ProductEntity[]; total: number }>;
 }

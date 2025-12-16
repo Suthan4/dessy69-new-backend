@@ -1,46 +1,68 @@
-
+import { UserEntity } from "../../domain/entities/User.entity";
+import { IUserRepository } from "../../domain/interfaces/IUserRepository";
 import { UserModel } from "../models/User.Model";
-import { UserMapper } from "../mappers/User.mapper";
-import { IUserRepository } from "@/modules/Auth.Module/domain/interfaces/IUserRepository";
-import { User } from "@/modules/Auth.Module/domain/entities/User.entity";
 
-export class UserRepository implements IUserRepository {
-  async findByEmail(email: string): Promise<User | null> {
-    const doc = await UserModel.findOne({ email: email.toLowerCase() });
-    return doc ? UserMapper.mapToEntity(doc) : doc;
-  }
-  async findAdmins(): Promise<User[]> {
-    const docs = await UserModel.find({ role: "admin" }).select("-password");
-    return docs.map((doc) => UserMapper.mapToEntity(doc));
-  }
-  async create(entity: User): Promise<User> {
-    const doc = await UserModel.create({
-      email: entity.email,
-      name: entity.name,
-      phone: entity.phone,
-      password: entity.password,
-      role: entity.role,
+export class UserRepository implements IUserRepository{
+  async create(user: UserEntity): Promise<UserEntity> {
+    const userDoc = await UserModel.create({
+      email: user.email,
+      passwordHash: user.passwordHash,
+      name: user.name,
+      role: user.role,
+      phone: user.phone,
+      address: user.address,
+      isActive: user.isActive,
     });
-    return UserMapper.mapToEntity(doc);
+    return this.toEntity(userDoc);
   }
-  async findAll(): Promise<User[]> {
-    const docs = await UserModel.find().sort({ createdAt: -1 });
-    return docs.map((doc) => UserMapper.mapToEntity(doc));
+
+  async findById(id: string): Promise<UserEntity | null> {
+    const user = await UserModel.findById(id);
+    return user ? this.toEntity(user) : null;
   }
-  async findById(id: string): Promise<User | null> {
-    const doc = await UserModel.findById(id);
-    return doc ? UserMapper.mapToEntity(doc) : null;
+
+  async findByEmail(email: string): Promise<UserEntity | null> {
+    const user = await UserModel.findOne({ email: email.toLowerCase() });
+    return user ? this.toEntity(user) : null;
   }
-  async update(id: string, payload: Partial<User>): Promise<User | null> {
-    const doc = await UserModel.findByIdAndUpdate(
-      id,
-      { payload, updatedAt: new Date() },
-      { new: true }
-    );
-    return doc ? UserMapper.mapToEntity(doc) : null;
+
+  async update(
+    id: string,
+    data: Partial<UserEntity>
+  ): Promise<UserEntity | null> {
+    const user = await UserModel.findByIdAndUpdate(id, data, { new: true });
+    return user ? this.toEntity(user) : null;
   }
+
   async delete(id: string): Promise<boolean> {
-    const result = UserModel.findByIdAndDelete(id);
+    const result = await UserModel.findByIdAndDelete(id);
     return !!result;
+  }
+
+  async findAll(
+    page: number,
+    limit: number
+  ): Promise<{ payload: UserEntity[]; total: number }> {
+    const skip = (page - 1) * limit;
+    const [users, total] = await Promise.all([
+      UserModel.find().skip(skip).limit(limit),
+      UserModel.countDocuments(),
+    ]);
+    return { payload: users.map((u) => this.toEntity(u)), total };
+  }
+
+  private toEntity(doc: any): UserEntity {
+    return new UserEntity(
+      doc._id.toString(),
+      doc.email,
+      doc.passwordHash,
+      doc.name,
+      doc.role,
+      doc.phone,
+      doc.address,
+      doc.isActive,
+      doc.createdAt,
+      doc.updatedAt
+    );
   }
 }

@@ -1,12 +1,9 @@
-import { Category } from "../entities/Category.entity";
+import { CategoryEntity } from "../entities/Category.entity";
 import { IRepository } from "./IRepository";
 
-export interface ICategoryRepository extends IRepository<Category> {
-  findByName(name: string): Promise<Category | null>;
-  findActive(): Promise<Category[]>;
-  findByParentId(parentId: string | null): Promise<Category[]>;
-  findByLevel(level: number): Promise<Category[]>;
-  findRootCategories(): Promise<Category[]>;
-  findChildCategories(parentId: string): Promise<Category[]>;
-  findByPath(path: string): Promise<Category | null>;
+export interface ICategoryRepository extends IRepository<CategoryEntity> {
+  findBySlug(slug: string): Promise<CategoryEntity | null>;
+  findByPath(path: string): Promise<CategoryEntity[]>;
+  findChildren(parentId: string): Promise<CategoryEntity[]>;
+  findDescendants(path: string): Promise<CategoryEntity[]>; // All children, grandchildren, etc.
 }

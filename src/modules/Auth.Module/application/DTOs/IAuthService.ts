@@ -1,8 +1,10 @@
-import { AuthResponseDTO, LoginDTO, RegisterDTO, UserResponseDTO } from "./AuthDTO";
+import { UserEntity } from "../../domain/entities/User.entity";
+import { AuthResponseDTO, LoginDTO, RegisterDTO } from "./AuthDTO";
 
 export interface IAuthService {
-  register(data: RegisterDTO): Promise<AuthResponseDTO>;
-  login(credentials: LoginDTO): Promise<AuthResponseDTO>;
-  verifyToken(token: string): Promise<UserResponseDTO>;
+  register(dto: RegisterDTO): Promise<AuthResponseDTO>;
+  login(dto: LoginDTO): Promise<AuthResponseDTO>;
+  validateToken(token: string): Promise<UserEntity | null>;
 }
+
 

@@ -1,91 +1,80 @@
-import bcrypt from "bcrypt";
-import jwt from "jsonwebtoken";
-import { IUserRepository } from "../../domain/interfaces/IUserRepository";
-import { User, UserRole } from "../../domain/entities/User.entity";
+import { AuthResponseDTO, LoginDTO, RegisterDTO } from "../DTOs/AuthDTO";
+import { UserEntity } from "../../domain/entities/User.entity";
+import { UserRole } from "@/shared/types/common.types";
 import { IAuthService } from "../DTOs/IAuthService";
-import { AuthResponseDTO, LoginDTO, RegisterDTO, UserResponseDTO } from "../DTOs/AuthDTO";
+import { IUserRepository } from "../../domain/interfaces/IUserRepository";
+import bcrypt from "bcryptjs";
+import { AppConfig } from "@/config/app.config";
+import jwt from "jsonwebtoken";
 
 
 export class AuthService implements IAuthService {
   constructor(private userRepository: IUserRepository) {}
 
-  async register(data: RegisterDTO): Promise<AuthResponseDTO> {
-    const existingUser = await this.userRepository.findByEmail(data.email);
-    if (existingUser) {
+  async register(dto: RegisterDTO): Promise<AuthResponseDTO> {
+    const existing = await this.userRepository.findByEmail(dto.email);
+    if (existing) {
       throw new Error("Email already registered");
     }
 
-    const hashedPassword = await bcrypt.hash(data.password, 10);
-
-    const user = new User(
-      "",
-      data.email,
-      data.name,
-      data.phone,
-      hashedPassword,
-      data.role || UserRole.CUSTOMER,
-      new Date()
+    const passwordHash = await bcrypt.hash(dto.password, 10);
+    const user = UserEntity.create(
+      dto.email,
+      passwordHash,
+      dto.name,
+      UserRole.CUSTOMER,
+      dto.phone,
+      dto.address
     );
+    const savedUser = await this.userRepository.create(user);
 
-    const created = await this.userRepository.create(user);
-    const token = this.generateToken(created);
-
-    return {
-      user: this.mapToDTO(created),
-      token,
-    };
+    const token = this.generateToken(savedUser);
+    return new AuthResponseDTO(token, {
+      id: savedUser.id,
+      email: savedUser.email,
+      name: savedUser.name,
+      role: savedUser.role,
+    });
   }
 
-  async login(credentials: LoginDTO): Promise<AuthResponseDTO> {
-    const user = await this.userRepository.findByEmail(credentials.email);
+  async login(dto: LoginDTO): Promise<AuthResponseDTO> {
+    const user = await this.userRepository.findByEmail(dto.email);
     if (!user) {
       throw new Error("Invalid credentials");
     }
 
-    const isValid = await bcrypt.compare(credentials.password, user.password);
+    const isValid = await bcrypt.compare(dto.password, user.passwordHash);
     if (!isValid) {
       throw new Error("Invalid credentials");
     }
 
-    const token = this.generateToken(user);
-
-    return {
-      user: this.mapToDTO(user),
-      token,
-    };
-  }
-
-  async verifyToken(token: string): Promise<UserResponseDTO> {
-    try {
-      const decoded = jwt.verify(token, process.env.JWT_SECRET || "secret") as {
-        userId: string;
-      };
-      const user = await this.userRepository.findById(decoded.userId);
-
-      if (!user) throw new Error("User not found");
-
-      return this.mapToDTO(user);
-    } catch (error) {
-      throw new Error("Invalid token");
+    if (!user.isActive) {
+      throw new Error("Account is deactivated");
     }
-  }
 
-  private generateToken(user: User): string {
-    return jwt.sign(
-      { userId: user.id, email: user.email, role: user.role },
-      process.env.JWT_SECRET || "secret",
-      { expiresIn: "7d" }
-    );
-  }
-
-  private mapToDTO(user: User): UserResponseDTO {
-    return {
+    const token = this.generateToken(user);
+    return new AuthResponseDTO(token, {
       id: user.id,
       email: user.email,
       name: user.name,
-      phone: user.phone,
       role: user.role,
-      createdAt: user.createdAt,
-    };
+    });
+  }
+
+  async validateToken(token: string): Promise<UserEntity | null> {
+    try {
+      const decoded = jwt.verify(token, AppConfig.jwt.secret) as any;
+      return await this.userRepository.findById(decoded.userId);
+    } catch {
+      return null;
+    }
+  }
+
+  private generateToken(user: UserEntity): string {
+    return jwt.sign(
+      { userId: user.id, email: user.email, role: user.role },
+      AppConfig.jwt.secret,
+      { expiresIn: AppConfig.jwt.expiresIn as jwt.SignOptions["expiresIn"] }
+    );
   }
 }

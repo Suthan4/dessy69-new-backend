@@ -1,89 +1,111 @@
+import { ProductEntity, ProductVariant } from "../../domain/entities/Product.entity";
+import { IProductRepository } from "../../domain/interfaces/IProductRepository";
 import { ProductModel } from "../models/Product.model";
-import { ProductMapper } from "../mappers/Product.mapper";
-import { IProductRepository } from "@/modules/Product.Module/domain/interfaces/IProductRepository";
-import { Product } from "@/modules/Product.Module/domain/entities/Product.entity";
 
 export class ProductRepository implements IProductRepository {
-  async findByCategoryId(categoryId: string): Promise<Product[]> {
-    const docs = await ProductModel.find({
-      categoryId,
-      isAvailable: true,
-    })
-      .populate("categoryId", "name")
-      .sort({ popularity: -1, name: 1 });
-    return docs.map((doc) => ProductMapper.mapToEntity(doc));
-  }
-
-  async findByPopular(): Promise<Product[]> {
-    const docs = await ProductModel.find({ isAvailable: true })
-      .populate("categoryId", "name")
-      .sort({ popularity: -1 })
-      .limit(10);
-    return docs.map((doc) => ProductMapper.mapToEntity(doc));
-  }
-
-  async findAvailable(): Promise<Product[]> {
-    const docs = await ProductModel.find({ isAvailable: true }).populate(
-      "categoryId",
-      "name"
-    );
-    return docs.map((doc) => ProductMapper.mapToEntity(doc));
-  }
-
-  async updateAvailability(id: string, status: boolean): Promise<boolean> {
-    const result = await ProductModel.findByIdAndUpdate(id, {
-      isAvailable: status,
-      updatedAt: new Date(),
+  async create(product: ProductEntity): Promise<ProductEntity> {
+    const doc = await ProductModel.create({
+      name: product.name,
+      slug: product.slug,
+      description: product.description,
+      categoryId: product.categoryId,
+      basePrice: product.basePrice,
+      sellingPrice: product.sellingPrice,
+      isAvailable: product.isAvailable,
+      variants: product.variants,
+      images: product.images,
+      ingredients: product.ingredients,
+      nutritionInfo: product.nutritionInfo
     });
-    return !!result;
+    return this.toEntity(doc);
   }
 
-  async searchProducts(query: string): Promise<Product[]> {
-    const docs = await ProductModel.find({
-      $text: { $search: query },
-      isAvailable: true,
-    })
-      .populate("categoryId", "name")
-      .limit(20);
-    return docs.map((doc) => ProductMapper.mapToEntity(doc));
+  async findById(id: string): Promise<ProductEntity | null> {
+    const doc = await ProductModel.findById(id);
+    return doc ? this.toEntity(doc) : null;
   }
 
-  async incrementPopularity(id: string): Promise<boolean> {
-    const result = await ProductModel.findByIdAndUpdate(id, {
-      $inc: { popularity: 1 },
-    });
-    return !!result;
+  async findBySlug(slug: string): Promise<ProductEntity | null> {
+    const doc = await ProductModel.findOne({ slug });
+    return doc ? this.toEntity(doc) : null;
   }
 
-  async create(entity: Product): Promise<Product> {
-    const doc = await ProductModel.create(ProductMapper.toPersistence(entity));
-    const populated = await doc.populate("categoryId", "name");
-    return ProductMapper.mapToEntity(populated);
+  async findByCategoryId(categoryId: string, page: number, limit: number): Promise<{ products: ProductEntity[]; total: number }> {
+    const skip = (page - 1) * limit;
+    const [docs, total] = await Promise.all([
+      ProductModel.find({ categoryId }).skip(skip).limit(limit),
+      ProductModel.countDocuments({ categoryId })
+    ]);
+    return { products: docs.map(d => this.toEntity(d)), total };
   }
 
-  async findAll(): Promise<Product[]> {
-    const docs = await ProductModel.find()
-      .populate("categoryId", "name")
-      .sort({ createdAt: -1 });
-    return docs.map((doc) => ProductMapper.mapToEntity(doc));
+  async findAll(page: number, limit: number, filters: any = {}): Promise<{ products: ProductEntity[]; total: number }> {
+    const skip = (page - 1) * limit;
+    const query: any = {};
+    
+    if (filters.isAvailable !== undefined) query.isAvailable = filters.isAvailable;
+    if (filters.categoryId) query.categoryId = filters.categoryId;
+    if (filters.minPrice) query.sellingPrice = { $gte: filters.minPrice };
+    if (filters.maxPrice) query.sellingPrice = { ...query.sellingPrice, $lte: filters.maxPrice };
+
+    const [docs, total] = await Promise.all([
+      ProductModel.find(query).skip(skip).limit(limit),
+      ProductModel.countDocuments(query)
+    ]);
+    return { products: docs.map(d => this.toEntity(d)), total };
   }
 
-  async findById(id: string): Promise<Product | null> {
-    const doc = await ProductModel.findById(id).populate("categoryId", "name");
-    return doc ? ProductMapper.mapToEntity(doc) : null;
+  async update(id: string, data: Partial<ProductEntity>): Promise<ProductEntity | null> {
+    const doc = await ProductModel.findByIdAndUpdate(id, data, { new: true });
+    return doc ? this.toEntity(doc) : null;
   }
 
-  async update(id: string, payload: Partial<Product>): Promise<Product | null> {
-    const doc = await ProductModel.findByIdAndUpdate(
-      id,
-      { ...payload, updatedAt: new Date() },
+  async updateVariant(productId: string, variantId: string, data: Partial<ProductVariant>): Promise<ProductEntity | null> {
+    const doc = await ProductModel.findOneAndUpdate(
+      { _id: productId, 'variants._id': variantId },
+      { $set: { 'variants.$': data } },
       { new: true }
-    ).populate("categoryId", "name");
-    return doc ? ProductMapper.mapToEntity(doc) : null;
+    );
+    return doc ? this.toEntity(doc) : null;
   }
 
   async delete(id: string): Promise<boolean> {
     const result = await ProductModel.findByIdAndDelete(id);
     return !!result;
+  }
+
+  async search(query: string, page: number, limit: number): Promise<{ products: ProductEntity[]; total: number }> {
+    const skip = (page - 1) * limit;
+    const [docs, total] = await Promise.all([
+      ProductModel.find({ $text: { $search: query } }).skip(skip).limit(limit),
+      ProductModel.countDocuments({ $text: { $search: query } })
+    ]);
+    return { products: docs.map(d => this.toEntity(d)), total };
+  }
+
+  private toEntity(doc: any): ProductEntity {
+    return new ProductEntity(
+      doc._id.toString(),
+      doc.name,
+      doc.slug,
+      doc.description,
+      doc.categoryId.toString(),
+      doc.basePrice,
+      doc.sellingPrice,
+      doc.isAvailable,
+      doc.variants.map((v: any) => ({
+        id: v._id.toString(),
+        name: v.name,
+        size: v.size,
+        basePrice: v.basePrice,
+        sellingPrice: v.sellingPrice,
+        isAvailable: v.isAvailable
+      })),
+      doc.images,
+      doc.ingredients,
+      doc.nutritionInfo,
+      doc.createdAt,
+      doc.updatedAt
+    );
   }
 }

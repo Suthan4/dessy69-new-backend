@@ -1,280 +1,168 @@
+import { OrderStatus, PaymentStatus } from "@/shared/types/common.types";
+import { OrderEntity, OrderItem } from "../../domain/entities/Order.entity";
+import { ICouponRepository } from "@/modules/Coupon.Module/domain/interfaces/ICouponRepository";
+import { IOrderRepository } from "../../domain/interfaces/IOrderRepository";
+import { IProductRepository } from "@/modules/Product.Module/domain/interfaces/IProductRepository";
+import { CouponService } from "@/modules/Coupon.Module/application/services/Coupon.service";
 
-import { OrderRepository } from "@/modules/Order.Module/infrastructure/repositories/OrderRepository";
-import { IOrderService } from "../interface/IOrderService";
-import { OrderServiceMapper } from "../mappers/OrderServiceMapper";
-import { CouponRepository } from "@/modules/Coupon.Module/infrastructure/repositories/CouponRepository";
-import { ProductRepository } from "@/modules/Product.Module/infrastructure/repositories/ProductRepository";
-import { CreateOrderDTO, OrderResponseDTO, OrderStatisticsDTO } from "../DTOs/OrderDTO";
-import { Order, OrderItem, OrderStatus, PaymentStatus } from "@/modules/Order.Module/domain/entities/Order.entity";
-import { SocketManager } from "@/shared/infrastructure/SocketManager";
-
-
-export class OrderService implements IOrderService {
+export class OrderService {
   constructor(
-    private orderRepository: OrderRepository,
-    private couponRepository: CouponRepository,
-    private productRepository: ProductRepository
+    private orderRepository: IOrderRepository,
+    private productRepository: IProductRepository,
+    private couponService: CouponService,
+    private couponRepository: ICouponRepository
   ) {}
 
-  private generateOrderId(): string {
-    const prefix = "DESSY";
-    const timestamp = Date.now().toString(36).toUpperCase();
-    const random = Math.random().toString(36).substring(2, 6).toUpperCase();
-    return `${prefix}${timestamp}${random}`;
-  }
+  async createOrder(
+    userId: string,
+    items: Array<{ productId: string; variantId?: string; quantity: number }>,
+    deliveryAddress: string,
+    phone: string,
+    couponCode?: string,
+    notes?: string
+  ): Promise<OrderEntity> {
+    // Validate and prepare order items
+    const orderItems: OrderItem[] = [];
+    const productIds: string[] = [];
+    const categoryIds: string[] = [];
 
-  async createOrder(orderData: CreateOrderDTO): Promise<OrderResponseDTO> {
-    let subtotal = 0;
-    const items: OrderItem[] = [];
+    for (const item of items) {
+      const product = await this.productRepository.findById(item.productId);
+      if (!product) throw new Error(`Product ${item.productId} not found`);
+      if (!product.isAvailable)
+        throw new Error(`Product ${product.name} is not available`);
 
-    // Validate items and calculate subtotal
-    for (const item of orderData.items) {
-      const product = await this.productRepository.findById(
-        item.menuItemId.toString()
-      );
+      productIds.push(product.id);
+      categoryIds.push(product.categoryId);
 
-      if (!product || !product.isAvailable) {
-        throw new Error(`Product ${item.name} is not available`);
+      let price = product.sellingPrice;
+      let variantName: string | undefined;
+
+      if (item.variantId) {
+        const variant = product.variants.find((v) => v.id === item.variantId);
+        if (!variant) throw new Error(`Variant not found`);
+        if (!variant.isAvailable)
+          throw new Error(`Variant ${variant.name} is not available`);
+        price = variant.sellingPrice;
+        variantName = variant.name;
       }
 
-      const variant = product.variants.find((v:any) => v.name === item.variantName);
-      if (!variant || !variant.isAvailable) {
-        throw new Error(`Variant ${item.variantName} is not available`);
-      }
-
-      const totalItem = item.sellingPrice+variant.sellingPrice * item.quantity;
-      subtotal += totalItem;
-
-      items.push(
-        new OrderItem(
-          item.menuItemId,
-          item.name,
-          item.variantName,
-          item.basePrice,
-          item.sellingPrice,
-          variant.basePrice,
-          variant.sellingPrice,
-          item.quantity,
-          totalItem
-        )
-      );
-
-      // Increment product popularity
-      await this.productRepository.incrementPopularity(product.id);
+      orderItems.push({
+        productId: product.id,
+        productName: product.name,
+        variantId: item.variantId,
+        variantName,
+        quantity: item.quantity,
+        price,
+        totalPrice: price * item.quantity,
+      });
     }
+
+    // Calculate subtotal
+    const subtotal = orderItems.reduce((sum, item) => sum + item.totalPrice, 0);
 
     // Apply coupon if provided
     let discount = 0;
-    if (orderData.couponCode) {
-      const coupon = await this.couponRepository.findByCode(
-        orderData.couponCode
+    if (couponCode) {
+      const validation = await this.couponService.validateAndApplyCoupon(
+        couponCode,
+        subtotal,
+        productIds,
+        categoryIds
       );
-      if (!coupon || !coupon.canBeUsed(subtotal)) {
-        throw new Error("Invalid or expired coupon");
+      if (!validation.valid) {
+        throw new Error(validation.reason || "Invalid coupon");
       }
-      discount = coupon.calculateDiscount(subtotal);
+      discount = validation.discount;
     }
 
-    const total = subtotal - discount;
-    const orderId = this.generateOrderId();
-
-    const order = new Order(
-      "",
-      orderId,
-      orderData.customerDetails,
-      items,
-      subtotal,
+    // Create order
+    const order = OrderEntity.create(
+      userId,
+      orderItems,
+      deliveryAddress,
+      phone,
+      couponCode,
       discount,
-      total,
-      OrderStatus.PENDING,
-      PaymentStatus.PENDING,
-      undefined,
-      undefined,
-      undefined,
-      undefined,
-      orderData.couponCode || null,
-      orderData.notes,
-      undefined,
-      [
-        {
-          status: OrderStatus.PENDING,
-          timestamp: new Date(),
-          notes: "Order created",
-        },
-      ],
-      new Date(),
-      new Date()
+      notes
     );
+    const savedOrder = await this.orderRepository.create(order);
 
-    const created = await this.orderRepository.create(order);
-    const dto = OrderServiceMapper.mapToDTO(created);
+    // Increment coupon usage if applied
+    if (couponCode) {
+      const coupon = await this.couponRepository.findByCode(couponCode);
+      if (coupon) {
+        await this.couponRepository.incrementUsage(coupon.id);
+      }
+    }
 
-    // Emit socket events
-    const socketManager = SocketManager.getInstance();
-    socketManager.emitToAdmins("order:new", dto);
-    socketManager.broadcast("order:created", { orderId: created.orderId });
-
-    return dto;
+    return savedOrder;
   }
 
-  async getOrderById(id: string): Promise<OrderResponseDTO> {
-    const order = await this.orderRepository.findById(id);
-    if (!order) throw new Error("Order not found");
-    return OrderServiceMapper.mapToDTO(order);
+  async getOrderById(id: string): Promise<OrderEntity | null> {
+    return await this.orderRepository.findById(id);
   }
 
-  async getOrderByOrderId(orderId: string): Promise<OrderResponseDTO> {
-    const order = await this.orderRepository.findByOrderId(orderId);
-    if (!order) throw new Error("Order not found");
-    return OrderServiceMapper.mapToDTO(order);
+  async getUserOrders(
+    userId: string,
+    page: number,
+    limit: number
+  ): Promise<{ orders: OrderEntity[]; total: number }> {
+    return await this.orderRepository.findByUserId(userId, page, limit);
   }
 
-  async getUserOrders(phone: string): Promise<OrderResponseDTO[]> {
-    const orders = await this.orderRepository.findByCustomerPhone(phone);
-    return orders.map((o) => OrderServiceMapper.mapToDTO(o));
-  }
-
-  async getAllOrders(): Promise<OrderResponseDTO[]> {
-    const orders = await this.orderRepository.findAll();
-    return orders.map((o) => OrderServiceMapper.mapToDTO(o));
+  async getAllOrders(
+    page: number,
+    limit: number,
+    filters?: any
+  ): Promise<{ orders: OrderEntity[]; total: number }> {
+    return await this.orderRepository.findAll(page, limit, filters);
   }
 
   async updateOrderStatus(
-    orderId: string,
-    status: string,
-    notes?: string,
-    estimatedTime?: number
-  ): Promise<OrderResponseDTO> {
-    const order = await this.orderRepository.findByOrderId(orderId);
+    id: string,
+    status: OrderStatus,
+    note?: string
+  ): Promise<OrderEntity | null> {
+    const order = await this.orderRepository.findById(id);
+    if (!order) throw new Error("Order not found");
+    if (!order.canBeUpdated()) throw new Error("Order cannot be updated");
+
+    return await this.orderRepository.updateStatus(id, status, note);
+  }
+
+  async cancelOrder(
+    id: string,
+    userId: string,
+    isAdmin: boolean = false
+  ): Promise<OrderEntity | null> {
+    const order = await this.orderRepository.findById(id);
     if (!order) throw new Error("Order not found");
 
-    order.updateStatus(status as OrderStatus, notes);
-    if (estimatedTime) {
-      order.estimatedTime = estimatedTime;
+    if (!isAdmin && order.userId !== userId) {
+      throw new Error("Unauthorized");
     }
 
-    const updated = await this.orderRepository.update(order.id, order);
-    if (!updated) throw new Error("Failed to update order");
+    if (!order.canBeCancelled()) {
+      throw new Error("Order cannot be cancelled");
+    }
 
-    const dto = OrderServiceMapper.mapToDTO(updated);
-
-    // Emit socket events
-    const socketManager = SocketManager.getInstance();
-    socketManager.emitToAdmins("order:updated", dto);
-    socketManager.emitOrderUpdate(orderId, "order:status", {
-      status,
-      estimatedTime,
-      notes,
-      timestamp: new Date(),
-    });
-    socketManager.broadcast("order:tracking", { orderId, status });
-
-    return dto;
+    return await this.orderRepository.updateStatus(
+      id,
+      OrderStatus.CANCELLED,
+      "Cancelled by user"
+    );
   }
 
   async updatePaymentStatus(
     orderId: string,
-    razorpayOrderId: string,
-    razorpayPaymentId: string,
-    razorpaySignature: string
-  ): Promise<OrderResponseDTO> {
-    const order = await this.orderRepository.findByOrderId(orderId);
-    if (!order) throw new Error("Order not found");
-
-    order.updatePaymentStatus(
-      PaymentStatus.SUCCESS,
-      razorpayOrderId,
-      razorpayPaymentId,
-      razorpaySignature
+    paymentStatus: PaymentStatus,
+    razorpayPaymentId?: string
+  ): Promise<OrderEntity | null> {
+    return await this.orderRepository.updatePaymentStatus(
+      orderId,
+      paymentStatus,
+      razorpayPaymentId
     );
-
-    const updated = await this.orderRepository.update(order.id, order);
-    if (!updated) throw new Error("Failed to update payment status");
-
-    // Increment coupon usage
-    if (order.couponCode) {
-      const coupon = await this.couponRepository.findByCode(order.couponCode);
-      if (coupon) {
-        await this.couponRepository.incerementUsage(coupon.id);
-      }
-    }
-
-    const dto = OrderServiceMapper.mapToDTO(updated);
-
-    // Emit socket events
-    const socketManager = SocketManager.getInstance();
-    socketManager.emitToAdmins("order:payment_success", dto);
-    socketManager.emitOrderUpdate(orderId, "payment:success", { orderId });
-
-    return dto;
-  }
-
-  async cancelOrder(
-    orderId: string,
-    reason: string
-  ): Promise<OrderResponseDTO> {
-    const order = await this.orderRepository.findByOrderId(orderId);
-    if (!order) throw new Error("Order not found");
-
-    order.cancel(reason);
-    const updated = await this.orderRepository.update(order.id, order);
-    if (!updated) throw new Error("Failed to cancel order");
-
-    const dto = OrderServiceMapper.mapToDTO(updated);
-
-    // Emit socket event
-    const socketManager = SocketManager.getInstance();
-    socketManager.emitOrderUpdate(orderId, "order:cancelled", dto);
-
-    return dto;
-  }
-
-  async getTodayOrders(): Promise<OrderResponseDTO[]> {
-    const orders = await this.orderRepository.getTodayIOrders();
-    return orders.map((o) => OrderServiceMapper.mapToDTO(o));
-  }
-
-  async getOrderStatistics(
-    startDate: Date,
-    endDate: Date
-  ): Promise<OrderStatisticsDTO[]> {
-    return await this.orderRepository.getIOrderStatistics(startDate, endDate);
-  }
-
-  async getOrderStats(): Promise<{
-    totalOrders: number;
-    pendingOrders: number;
-    completedOrders: number;
-    totalRevenue: number;
-    todayOrders: number;
-  }> {
-    const [allOrders, todayOrdersList] = await Promise.all([
-      this.orderRepository.findAll(),
-      this.orderRepository.getTodayIOrders(),
-    ]);
-
-    const pendingOrders = allOrders.filter((o) =>
-      [
-        OrderStatus.PENDING,
-        OrderStatus.CONFIRMED,
-        OrderStatus.PREPARING,
-      ].includes(o.status)
-    ).length;
-
-    const completedOrders = allOrders.filter(
-      (o) => o.status === OrderStatus.DELIVERED
-    ).length;
-
-    const totalRevenue = allOrders
-      .filter((o) => o.paymentStatus === PaymentStatus.SUCCESS)
-      .reduce((sum, o) => sum + o.total, 0);
-
-    return {
-      totalOrders: allOrders.length,
-      pendingOrders,
-      completedOrders,
-      totalRevenue,
-      todayOrders: todayOrdersList.length,
-    };
   }
 }

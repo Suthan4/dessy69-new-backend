@@ -1,107 +1,104 @@
-import { IOrderService } from "@/modules/Order.Module/application/interface/IOrderService";
 import { Request, Response } from "express";
+import { AuthRequest } from "@/shared/middleware/auth.middleware";
+import { OrderService } from "../../application/services/Order.service";
+import { OrderStatus, PaymentStatus, UserRole } from "@/shared/types/common.types";
 
 export class OrderController {
-  constructor(private orderService: IOrderService) {}
+  constructor(private orderService: OrderService) {}
 
-  createOrder = async (req: Request, res: Response) => {
+  createOrder = async (req: AuthRequest, res: Response): Promise<void> => {
     try {
-      const order = await this.orderService.createOrder(req.body);
+      const { items, deliveryAddress, phone, couponCode, notes } = req.body;
+      const order = await this.orderService.createOrder(
+        req.userId!,
+        items,
+        deliveryAddress,
+        phone,
+        couponCode,
+        notes
+      );
       res.status(201).json({ success: true, data: order });
     } catch (error: any) {
       res.status(400).json({ success: false, message: error.message });
     }
   };
 
-  getOrderByOrderId = async (req: Request, res: Response) => {
+  getMyOrders = async (req: AuthRequest, res: Response): Promise<void> => {
     try {
-      const order = await this.orderService.getOrderByOrderId(
-        req.params.orderId as string
+      const page = parseInt(req.query.page as string) || 1;
+      const limit = parseInt(req.query.limit as string) || 10;
+      const result = await this.orderService.getUserOrders(
+        req.userId!,
+        page,
+        limit
       );
-      res.json({ success: true, data: order });
+      res.json({ success: true, data: result });
     } catch (error: any) {
-      res.status(404).json({ success: false, message: error.message });
+      res.status(500).json({ success: false, message: error.message });
     }
   };
 
-  getUserOrders = async (req: Request, res: Response) => {
+  getAllOrders = async (req: Request, res: Response): Promise<void> => {
     try {
-      const { phone } = req.query;
-      if (!phone) {
-        return res
-          .status(400)
-          .json({ success: false, message: "Phone number required" });
+      const page = parseInt(req.query.page as string) || 1;
+      const limit = parseInt(req.query.limit as string) || 10;
+      const filters = {
+        status: req.query.status as OrderStatus,
+        paymentStatus: req.query.paymentStatus as PaymentStatus,
+      };
+      const result = await this.orderService.getAllOrders(page, limit, filters);
+      res.json({ success: true, data: result });
+    } catch (error: any) {
+      res.status(500).json({ success: false, message: error.message });
+    }
+  };
+
+  getOrderById = async (req: Request, res: Response): Promise<void> => {
+    try {
+      const order = await this.orderService.getOrderById(req.params.id as string);
+      if (!order) {
+        res.status(404).json({ success: false, message: "Order not found" });
+        return;
       }
-      const orders = await this.orderService.getUserOrders(phone as string);
-      res.json({ success: true, data: orders });
+      res.json({ success: true, data: order });
     } catch (error: any) {
       res.status(500).json({ success: false, message: error.message });
     }
   };
 
-  getAllOrders = async (req: Request, res: Response) => {
+  updateOrderStatus = async (req: Request, res: Response): Promise<void> => {
     try {
-      const orders = await this.orderService.getAllOrders();
-      res.json({ success: true, data: orders });
-    } catch (error: any) {
-      res.status(500).json({ success: false, message: error.message });
-    }
-  };
-
-  updateOrderStatus = async (req: Request, res: Response) => {
-    try {
-      const { status, notes, estimatedTime } = req.body;
+      const { status, note } = req.body;
       const order = await this.orderService.updateOrderStatus(
-        req.params.orderId as string,
+        req.params.id as string,
         status,
-        notes,
-        estimatedTime
+        note
       );
+      if (!order) {
+        res.status(404).json({ success: false, message: "Order not found" });
+        return;
+      }
       res.json({ success: true, data: order });
     } catch (error: any) {
       res.status(400).json({ success: false, message: error.message });
     }
   };
 
-  verifyPayment = async (req: Request, res: Response) => {
+  cancelOrder = async (req: AuthRequest, res: Response): Promise<void> => {
     try {
-      const { orderId, razorpayOrderId, razorpayPaymentId, razorpaySignature } =
-        req.body;
-      const order = await this.orderService.updatePaymentStatus(
-        orderId,
-        razorpayOrderId,
-        razorpayPaymentId,
-        razorpaySignature
-      );
-      res.json({
-        success: true,
-        message: "Payment verified successfully",
-        data: order,
-      });
-    } catch (error: any) {
-      res.status(400).json({ success: false, message: error.message });
-    }
-  };
-
-  cancelOrder = async (req: Request, res: Response) => {
-    try {
-      const { reason } = req.body;
+      const isAdmin = req.userRole === UserRole.ADMIN;
       const order = await this.orderService.cancelOrder(
-        req.params.orderId as string,
-        reason
+        req.params.id as string,
+        req.userId!,
+        isAdmin
       );
+      if (!order) {
+        res.status(404).json({ success: false, message: "Order not found" });
+        return;
+      }
       res.json({ success: true, data: order });
     } catch (error: any) {
       res.status(400).json({ success: false, message: error.message });
-    }
-  };
-
-  getOrderStats = async (req: Request, res: Response) => {
-    try {
-      const stats = await this.orderService.getOrderStats();
-      res.json({ success: true, data: stats });
-    } catch (error: any) {
-      res.status(500).json({ success: false, message: error.message });
     }
   };
 }

@@ -1,28 +1,27 @@
-import { UserRole } from "@/modules/Auth.Module/domain/entities/User.entity";
+import { UserRole } from "@/shared/types/common.types";
 
-export interface RegisterDTO {
-  email: string;
-  name: string;
-  phone: string;
-  password: string;
-  role?: UserRole;
+export class RegisterDTO {
+  constructor(
+    public email: string,
+    public password: string,
+    public name: string,
+    public phone?: string,
+    public address?: string
+  ) {}
 }
 
-export interface LoginDTO {
-  email: string;
-  password: string;
+export class LoginDTO {
+  constructor(public email: string, public password: string) {}
 }
 
-export interface UserResponseDTO {
-  id: string;
-  email: string;
-  name: string;
-  phone: string;
-  role: UserRole;
-  createdAt: Date;
-}
-
-export interface AuthResponseDTO {
-  user: UserResponseDTO;
-  token: string;
+export class AuthResponseDTO {
+  constructor(
+    public token: string,
+    public user: {
+      id: string;
+      email: string;
+      name: string;
+      role: UserRole;
+    }
+  ) {}
 }

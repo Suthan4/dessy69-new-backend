@@ -1,21 +1,6 @@
-import { DiscountType } from "@/modules/Coupon.Module/domain/entities/Coupon.entity";
-import mongoose, { HydratedDocument, Schema } from "mongoose";
+import { CouponType } from "@/shared/types/common.types";
+import { model, Schema, Types } from "mongoose";
 
- interface ICoupon extends Document {
-  code: string;
-  discountType: DiscountType;
-  discountValue: number;
-  minOrderAmount: number;
-  maxDiscount?: number;
-  isActive: boolean;
-  expiresAt?: Date;
-  usageLimit?: number;
-  usedCount: number;
-  createdAt: Date;
-  updatedAt: Date;
-}
-
-export type ICouponDocument = HydratedDocument<ICoupon>
 const CouponSchema = new Schema(
   {
     code: {
@@ -25,20 +10,19 @@ const CouponSchema = new Schema(
       uppercase: true,
       index: true,
     },
-    discountType: {
-      type: String,
-      enum: ["percentage", "fixed"],
-      required: true,
-    },
-    discountValue: { type: Number, required: true, min: 0 },
-    minOrderAmount: { type: Number, default: 0 },
-    maxDiscount: { type: Number, default: null },
-    isActive: { type: Boolean, default: true, index: true },
-    expiresAt: { type: Date, default: null },
-    usageLimit: { type: Number, default: null },
+    type: { type: String, enum: Object.values(CouponType), required: true },
+    value: { type: Number, required: true },
+    minOrderAmount: { type: Number, required: true, default: 0 },
+    maxDiscount: { type: Number, required: true },
+    usageLimit: { type: Number, required: true },
     usedCount: { type: Number, default: 0 },
+    startDate: { type: Date, required: true },
+    endDate: { type: Date, required: true },
+    isActive: { type: Boolean, default: true },
+    applicableCategories: [{ type: Schema.Types.ObjectId, ref: "Category" }],
+    applicableProducts: [{ type: Schema.Types.ObjectId, ref: "Product" }],
   },
   { timestamps: true }
 );
 
-export const CouponModel = mongoose.model<ICoupon>("Coupon", CouponSchema);
+export const CouponModel = model("Coupon", CouponSchema);

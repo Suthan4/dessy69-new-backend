@@ -1,11 +1,28 @@
-import { Order, OrderStatus } from "../entities/Order.entity";
-import { IRepository } from "./IRepository";
+import { OrderStatus, PaymentStatus } from "@/shared/types/common.types";
+import { OrderEntity } from "../entities/Order.entity";
 
-export interface IOrderRepository extends IRepository<Order> {
-  findByOrderId(orderId: string): Promise<Order | null>;
-  findByCustomerPhone(phone: string): Promise<Order[]>;
-  findByStatus(status: OrderStatus): Promise<Order[]>;
-  updateStatus(id: string, status: OrderStatus): Promise<Order | null>;
-  getTodayIOrders(): Promise<Order[]>;
-  getIOrderStatistics(startDate: Date, endDate: Date): Promise<any>;
+export interface IOrderRepository {
+  create(order: OrderEntity): Promise<OrderEntity>;
+  findById(id: string): Promise<OrderEntity | null>;
+  findByUserId(
+    userId: string,
+    page: number,
+    limit: number
+  ): Promise<{ orders: OrderEntity[]; total: number }>;
+  findAll(
+    page: number,
+    limit: number,
+    filters?: any
+  ): Promise<{ orders: OrderEntity[]; total: number }>;
+  updateStatus(
+    id: string,
+    status: OrderStatus,
+    note?: string
+  ): Promise<OrderEntity | null>;
+  updatePaymentStatus(
+    id: string,
+    paymentStatus: PaymentStatus,
+    razorpayPaymentId?: string
+  ): Promise<OrderEntity | null>;
+  update(id: string, data: Partial<OrderEntity>): Promise<OrderEntity | null>;
 }

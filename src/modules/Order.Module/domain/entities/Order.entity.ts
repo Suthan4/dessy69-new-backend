@@ -1,105 +1,85 @@
-import { Types } from "mongoose";
+import { OrderStatus, PaymentStatus } from "@/shared/types/common.types";
 
-export enum OrderStatus {
-  PENDING = "pending",
-  CONFIRMED = "confirmed",
-  PREPARING = "preparing",
-  READY = "ready",
-  OUT_FOR_DELIVERY = "out_for_delivery",
-  DELIVERED = "delivered",
-  CANCELLED = "cancelled",
+export interface OrderItem {
+  productId: string;
+  productName: string;
+  variantId?: string;
+  variantName?: string;
+  quantity: number;
+  price: number;
+  totalPrice: number;
 }
 
-export enum PaymentStatus {
-  PENDING = "pending",
-  SUCCESS = "success",
-  FAILED = "failed",
-}
-
-export interface CustomerDetails {
-  name: string;
-  phone: string;
-  email?: string;
-  address?: string;
-}
-
-export interface TrackingHistoryEntry {
-  status: OrderStatus;
-  timestamp: Date;
-  notes?: string;
-}
-
-export class Order {
+export class OrderEntity {
   constructor(
     public readonly id: string,
-    public orderId: string,
-    public customerDetails: CustomerDetails,
-    public items: OrderItem[],
-    public subtotal: number,
-    public discount: number,
-    public total: number,
-    public status: OrderStatus,
-    public paymentStatus: PaymentStatus,
-    public paymentId: string | undefined,
-    public razorpayOrderId: string | undefined,
-    public razorpayPaymentId: string | undefined,
-    public razorpaySignature: string | undefined,
-    public couponCode: string | null,
-    public notes: string | undefined,
-    public estimatedTime: number | undefined,
-    public trackingHistory: TrackingHistoryEntry[],
-    public createdAt: Date,
-    public updatedAt: Date
+    public readonly userId: string,
+    public readonly items: OrderItem[],
+    public readonly subtotal: number,
+    public readonly discount: number,
+    public readonly deliveryCharge: number,
+    public readonly total: number,
+    public readonly status: OrderStatus,
+    public readonly paymentStatus: PaymentStatus,
+    public readonly couponCode?: string,
+    public readonly deliveryAddress?: string,
+    public readonly phone?: string,
+    public readonly notes?: string,
+    public readonly razorpayOrderId?: string,
+    public readonly razorpayPaymentId?: string,
+    public readonly statusHistory: Array<{
+      status: OrderStatus;
+      timestamp: Date;
+      note?: string;
+    }> = [],
+    public readonly createdAt: Date = new Date(),
+    public readonly updatedAt: Date = new Date()
   ) {}
 
-  updateStatus(newStatus: OrderStatus, notes?: string): void {
-    this.status = newStatus;
-    this.trackingHistory.push({
-      status: newStatus,
-      timestamp: new Date(),
-      ...(notes !== undefined && { notes }),
-    });
-    this.updatedAt = new Date();
+  public canBeCancelled(): boolean {
+    return [OrderStatus.PENDING, OrderStatus.CONFIRMED].includes(this.status);
   }
 
-  updatePaymentStatus(
-    status: PaymentStatus,
-    razorpayOrderId: string,
-    razorpayPaymentId: string,
-    razorpaySignature: string
-  ): void {
-    this.paymentStatus = status;
-    this.razorpayOrderId = razorpayOrderId;
-    this.razorpayPaymentId = razorpayPaymentId;
-    this.razorpaySignature = razorpaySignature;
-    this.updatedAt = new Date();
+  public canBeUpdated(): boolean {
+    return ![OrderStatus.DELIVERED, OrderStatus.CANCELLED].includes(
+      this.status
+    );
   }
 
-  cancel(reason: string): void {
-    if (this.status === OrderStatus.DELIVERED) {
-      throw new Error("Cannot cancel delivered order");
-    }
-    this.status = OrderStatus.CANCELLED;
-    this.notes = reason;
-    this.trackingHistory.push({
-      status: OrderStatus.CANCELLED,
-      timestamp: new Date(),
-      notes: reason,
-    });
-    this.updatedAt = new Date();
+  public addStatusChange(status: OrderStatus, note?: string): void {
+    this.statusHistory.push({ status, timestamp: new Date(), note });
   }
-}
 
-export class OrderItem {
-  constructor(
-    public menuItemId: Types.ObjectId,
-    public name: string,
-    public variantName: string,
-    public product_basePrice: number,
-    public product_sellingPrice: number,
-    public variant_basePrice: number,
-    public variant_sellingPrice: number,
-    public quantity: number,
-    public totalPrice: number
-  ) {}
+  public static create(
+    userId: string,
+    items: OrderItem[],
+    deliveryAddress: string,
+    phone: string,
+    couponCode?: string,
+    discount: number = 0,
+    notes?: string
+  ): OrderEntity {
+    const subtotal = items.reduce((sum, item) => sum + item.totalPrice, 0);
+    const deliveryCharge = subtotal > 500 ? 0 : 50;
+    const total = subtotal - discount + deliveryCharge;
+
+    return new OrderEntity(
+      "",
+      userId,
+      items,
+      subtotal,
+      discount,
+      deliveryCharge,
+      total,
+      OrderStatus.PENDING,
+      PaymentStatus.PENDING,
+      couponCode,
+      deliveryAddress,
+      phone,
+      notes,
+      undefined,
+      undefined,
+      [{ status: OrderStatus.PENDING, timestamp: new Date() }]
+    );
+  }
 }

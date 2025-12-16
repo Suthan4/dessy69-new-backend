@@ -1,59 +1,65 @@
-
 import { Router } from "express";
+import {
+  CreateProductSchema,
+  UpdateProductSchema,
+  UpdateAvailabilitySchema,
+  ProductQuerySchema,
+  SearchQuerySchema,
+  ProductIdSchema,
+} from "../../application/validators/product.validators";
 import { ProductController } from "../controllers/Product.controller";
-import { ProductSchema } from "../validators/schema";
-import { ProductRepository } from "@/modules/Product.Module/infrastructure/repositories/ProductRepository";
-import { CategoryRepository } from "@/modules/Category.Module/infrastructure/repositories/CategoryReoisitory";
-import { ProductService } from "@/modules/Product.Module/application/services/Product.service";
-import { authenticate, authorizeAdmin } from "@/shared/middleware/auth.middleware";
-import { validate } from "@/shared/middleware/validation.middleware";
+import { AuthMiddleware } from "@/shared/middleware/auth.middleware";
+import { UserRole } from "@/shared/types/common.types";
+import { ValidationMiddleware } from "@/shared/middleware/validation.middleware";
 
 export class ProductRoutes {
-  public router: Router;
-  private controller: ProductController;
-
-  constructor() {
-    this.router = Router();
-    const productRepository = new ProductRepository();
-    const categoryRepository = new CategoryRepository();
-    const service = new ProductService(productRepository, categoryRepository);
-    this.controller = new ProductController(service);
-    this.setupRoutes();
-  }
-
-  private setupRoutes(): void {
-    // Public routes
-    this.router.get("/", this.controller.getAllProducts);
-    this.router.get("/popular", this.controller.getPopularProducts);
-    this.router.get("/search", this.controller.searchProducts);
-    this.router.get("/:id", this.controller.getProductById);
-
-    // Admin routes
-    this.router.post(
+  static create(controller: ProductController): Router {
+    const router = Router();
+    router.post(
       "/",
-      authenticate,
-      authorizeAdmin,
-      validate(ProductSchema),
-      this.controller.createProduct
+      AuthMiddleware.authenticate,
+      AuthMiddleware.authorize(UserRole.ADMIN),
+      ValidationMiddleware.validateBody(CreateProductSchema),
+      controller.createProduct
     );
-
-    this.router.put(
+    router.get(
+      "/",
+      ValidationMiddleware.validateQuery(ProductQuerySchema),
+      controller.getProducts
+    );
+    router.get(
+      "/search",
+      ValidationMiddleware.validateQuery(SearchQuerySchema),
+      controller.searchProducts
+    );
+    router.get(
       "/:id",
-      authenticate,
-      authorizeAdmin,
-      this.controller.updateProduct
+      ValidationMiddleware.validateParams(ProductIdSchema),
+      controller.getProductById
     );
-    this.router.delete(
+    router.put(
       "/:id",
-      authenticate,
-      authorizeAdmin,
-      this.controller.deleteProduct
+      AuthMiddleware.authenticate,
+      AuthMiddleware.authorize(UserRole.ADMIN),
+      ValidationMiddleware.validateParams(ProductIdSchema),
+      ValidationMiddleware.validateBody(UpdateProductSchema),
+      controller.updateProduct
     );
-    this.router.patch(
+    router.patch(
       "/:id/availability",
-      authenticate,
-      authorizeAdmin,
-      this.controller.updateAvailability
+      AuthMiddleware.authenticate,
+      AuthMiddleware.authorize(UserRole.ADMIN),
+      ValidationMiddleware.validateParams(ProductIdSchema),
+      ValidationMiddleware.validateBody(UpdateAvailabilitySchema),
+      controller.updateAvailability
     );
+    router.delete(
+      "/:id",
+      AuthMiddleware.authenticate,
+      AuthMiddleware.authorize(UserRole.ADMIN),
+      ValidationMiddleware.validateParams(ProductIdSchema),
+      controller.deleteProduct
+    );
+    return router;
   }
 }
