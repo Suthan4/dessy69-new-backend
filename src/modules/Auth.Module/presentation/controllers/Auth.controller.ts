@@ -11,11 +11,19 @@ export class AuthController {
         req.body.email,
         req.body.password,
         req.body.name,
+        req.body.role,
         req.body.phone,
         req.body.address
       );
       const result = await this.authService.register(reqbody);
-      res.status(201).json({ success: true, data: result });
+     res.cookie("token", result.token, {
+       httpOnly: false, // Can be true for better security
+       sameSite: "none", // ✅ Correct for cross-origin HTTPS
+       maxAge: 7 * 24 * 60 * 60 * 1000,
+       secure: true, // ✅ Required for HTTPS
+       path: "/",
+     });
+      res.status(201).json({ success: true, data: result.user });
     } catch (error: any) {
       res.status(400).json({ success: false, message: error.message });
     }
@@ -25,7 +33,15 @@ export class AuthController {
     try {
       const reqbody = new LoginDTO(req.body.email, req.body.password);
       const result = await this.authService.login(reqbody);
-      res.status(200).json({ success: true, data: result });
+     res.cookie("token", result.token, {
+       httpOnly: false, // Can be true for better security
+       sameSite: "none", // ✅ Correct for cross-origin HTTPS
+       maxAge: 7 * 24 * 60 * 60 * 1000,
+       secure: true, // ✅ Required for HTTPS
+       path: "/",
+     });
+      
+      res.status(200).json({ success: true, data: result.user });
     } catch (error: any) {
       res.status(401).json({ success: false, message: error.message });
     }

@@ -2,6 +2,7 @@ import { OrderStatus, PaymentStatus } from "@/shared/types/common.types";
 import { OrderEntity } from "../../domain/entities/Order.entity";
 import { IOrderRepository } from "../../domain/interfaces/IOrderRepository";
 import { OrderModel } from "../models/Order.model";
+import { OrderServiceMapper } from "../../application/mappers/OrderServiceMapper";
 
 export class OrderRepository implements IOrderRepository {
   async create(order: OrderEntity): Promise<OrderEntity> {
@@ -14,19 +15,20 @@ export class OrderRepository implements IOrderRepository {
       total: order.total,
       status: order.status,
       paymentStatus: order.paymentStatus,
-      couponCode: order.couponCode,
-      deliveryAddress: order.deliveryAddress,
       phone: order.phone,
+      deliveryAddress: order.deliveryAddress,
+      couponCode: order.couponCode,
       notes: order.notes,
-      razorpayOrderId: order.razorpayOrderId,
-      razorpayPaymentId: order.razorpayPaymentId,
       statusHistory: order.statusHistory,
     });
-    return this.toEntity(doc);
+    return OrderServiceMapper.fromPersistence(doc);
   }
 
   async findById(id: string): Promise<OrderEntity | null> {
-    const doc = await OrderModel.findById(id).populate("userId", "name email");
+    const doc = await OrderModel.findById(id).populate(
+      "userId",
+      "_id name email"
+    );
     return doc ? this.toEntity(doc) : null;
   }
 
@@ -108,9 +110,15 @@ export class OrderRepository implements IOrderRepository {
   }
 
   private toEntity(doc: any): OrderEntity {
+      const userId =
+        doc.userId && doc.userId._id
+          ? doc.userId._id.toString()
+          : typeof doc.userId === "string"
+          ? doc.userId
+          : undefined;
     return new OrderEntity(
       doc._id.toString(),
-      doc.userId._id ? doc.userId._id.toString() : doc.userId.toString(),
+      userId,
       doc.items,
       doc.subtotal,
       doc.discount,

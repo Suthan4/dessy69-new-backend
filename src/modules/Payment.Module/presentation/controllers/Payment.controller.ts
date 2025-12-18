@@ -11,10 +11,7 @@ export class PaymentController {
   ): Promise<void> => {
     try {
       const { orderId } = req.body;
-      const paymentOrder = await this.paymentService.createPaymentOrder(
-        orderId,
-        req.userId!
-      );
+      const paymentOrder = await this.paymentService.createPaymentOrder( orderId);
       res.json({ success: true, data: paymentOrder });
     } catch (error: any) {
       res.status(400).json({ success: false, message: error.message });

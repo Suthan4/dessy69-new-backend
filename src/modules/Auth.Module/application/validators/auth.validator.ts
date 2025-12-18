@@ -1,14 +1,16 @@
+import { UserRole } from "@/shared/types/common.types";
 import { z } from "zod";
 
 export const RegisterSchema = z.object({
   email: z.string().email("Invalid email address"),
   password: z.string().min(6, "Password must be at least 6 characters"),
   name: z.string().min(2, "Name must be at least 2 characters").max(100),
+  role: z.enum([UserRole.ADMIN, UserRole.CUSTOMER]).default(UserRole.CUSTOMER),
   phone: z
     .string()
     .regex(/^[0-9]{10}$/, "Phone must be 10 digits")
     .optional(),
-  address: z
+    address: z
     .string()
     .min(10, "Address must be at least 10 characters")
     .optional(),

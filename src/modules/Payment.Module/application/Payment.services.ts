@@ -15,10 +15,10 @@ export class PaymentService {
     });
   }
 
-  async createPaymentOrder(orderId: string, userId: string): Promise<any> {
+  async createPaymentOrder(orderId: string): Promise<any> {
     const order = await this.orderRepository.findById(orderId);
     if (!order) throw new Error("Order not found");
-    if (order.userId !== userId) throw new Error("Unauthorized");
+    // if (order.userId !== userId) throw new Error("Unauthorized");
     if (order.paymentStatus === PaymentStatus.COMPLETED)
       throw new Error("Payment already completed");
 
@@ -28,7 +28,6 @@ export class PaymentService {
       receipt: orderId,
       notes: {
         orderId: orderId,
-        userId: userId,
       },
     });
 

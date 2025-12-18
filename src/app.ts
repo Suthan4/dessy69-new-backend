@@ -9,35 +9,59 @@ import { ProductRoutes } from "./modules/Product.Module/presentation/routes/prod
 import { OrderRoutes } from "./modules/Order.Module/presentation/routes/order.routes";
 import { CouponRoutes } from "./modules/Coupon.Module/presentation/routes/coupon.routes";
 import { SocketManager } from "./shared/infrastructure/SocketManager";
-  
+import { Container } from "./shared/container/container";
+import { initializeContainer } from "./shared/container";
+import { TYPES } from "./shared/container/types";
+import { AuthController } from "./modules/Auth.Module/presentation/controllers/Auth.controller";
+import { CategoryController } from "./modules/Category.Module/presentation/controllers/Category.controller";
+import { ProductController } from "./modules/Product.Module/presentation/controllers/Product.controller";
+import { CouponController } from "./modules/Coupon.Module/presentation/controllers/Coupon.controllers";
+import { OrderController } from "./modules/Order.Module/presentation/controllers/Order.controller";
+import { PaymentController } from "./modules/Payment.Module/presentation/controllers/Payment.controller";
+import cookieParser from "cookie-parser";
+
 export class Application {
   private app: Express;
   private server: Server;
+  private container: Container;
 
   constructor() {
     this.app = express();
-    this.setupMiddlware();
-    this.setupSecurity();
-    this.setupStaticRoute();
-    this.setupRoutes();
-    this.setupSocket();
-    // 🔥 CREATE HTTPS SERVER ONCE
-    this.server = createServer(this.app);
 
-    // 🔥 ATTACH SOCKET.IO TO SAME SERVER
+    // Initialize DI Container FIRST
+    this.container = initializeContainer();
+
+    // Then setup everything else
+    this.setupSecurity(); // FIRST
+    this.setupMiddlware(); // THEN body, cookies, cors
+    this.setupStaticRoute();
+
+    // Create HTTP server and Socket.IO
+    this.server = createServer(this.app);
+    // Setup Socket.IO with the HTTP server
     this.setupSocket();
+    // Setup routes last
+    this.setupRoutes();
   }
 
   private setupMiddlware(): void {
     this.app.use(
       cors({
-        origin: "*",
+        origin: "https://localhost:3000",
         credentials: true,
         methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
-        allowedHeaders: ["Content-Type", "Authorization"],
+        allowedHeaders: [
+          "Content-Type",
+          "Authorization",
+          "Cookie",
+          "X-Requested-With",
+        ],
+        exposedHeaders: ["Set-Cookie"],
       })
     );
+
     this.app.use(express.json());
+    this.app.use(cookieParser());
     this.app.use(express.urlencoded({ extended: true }));
   }
 
@@ -50,6 +74,10 @@ export class Application {
   }
 
   private setupRoutes(): void {
+    this.app.use((req, _, next) => {
+      console.log("Incoming cookies:", req.cookies);
+      next();
+    });
     this.app.get("/", (_, res: Response) => {
       res.json({
         status: "OK",
@@ -57,12 +85,37 @@ export class Application {
           "🍨 Dessy69 Cafe - Fruit Fuelled! Server Running Successfully",
       });
     });
-    this.app.use("/api/auth", new AuthRoutes().router);
-    this.app.use("/api/categories", new CategoryRoutes().router);
-    this.app.use("/api/products", new ProductRoutes().router);
-    this.app.use("/api/orders", new OrderRoutes().router);
-    this.app.use("/api/coupons", new CouponRoutes().router);
-    this.app.use("/api/payment", new PaymentRoutes().router);
+    console.log("🛣️  Setting up Routes...");
+
+    // Resolve controllers from container
+    const authController = this.container.resolve<AuthController>(
+      TYPES.AuthController
+    );
+    const categoryController = this.container.resolve<CategoryController>(
+      TYPES.CategoryController
+    );
+    const productController = this.container.resolve<ProductController>(
+      TYPES.ProductController
+    );
+    const couponController = this.container.resolve<CouponController>(
+      TYPES.CouponController
+    );
+    const orderController = this.container.resolve<OrderController>(
+      TYPES.OrderController
+    );
+    const paymentController = this.container.resolve<PaymentController>(
+      TYPES.PaymentController
+    );
+
+    // Setup routes using resolved controllers
+    this.app.use("/api/auth", AuthRoutes.create(authController));
+    this.app.use("/api/categories", CategoryRoutes.create(categoryController));
+    this.app.use("/api/products", ProductRoutes.create(productController));
+    this.app.use("/api/coupons", CouponRoutes.create(couponController));
+    this.app.use("/api/orders", OrderRoutes.create(orderController));
+    this.app.use("/api/payment", PaymentRoutes.create(paymentController));
+
+    console.log("✅ All routes initialized successfully");
   }
 
   private setupSocket(): void {
@@ -81,5 +134,8 @@ export class Application {
   }
   public getServer(): Express {
     return this.app;
+  }
+  public getContainer(): Container {
+    return this.container;
   }
 }

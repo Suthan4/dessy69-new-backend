@@ -30,9 +30,9 @@ export class UserEntity {
     email: string,
     passwordHash: string,
     name: string,
-    role: UserRole = UserRole.CUSTOMER,
+    role: UserRole,
     phone?: string,
-    address?: string
+    address?: string,
   ): UserEntity {
     return new UserEntity(
       "",

@@ -5,8 +5,9 @@ export class RegisterDTO {
     public email: string,
     public password: string,
     public name: string,
+    public role: UserRole,
     public phone?: string,
-    public address?: string
+    public address?: string,
   ) {}
 }
 

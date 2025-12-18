@@ -12,13 +12,13 @@ export class PaymentRoutes {
     const router = Router();
     router.post(
       "/create-order",
-      AuthMiddleware.authenticate,
+      // AuthMiddleware.authenticate,
       ValidationMiddleware.validateBody(CreatePaymentOrderSchema),
       controller.createPaymentOrder
     );
     router.post(
       "/verify",
-      AuthMiddleware.authenticate,
+      // AuthMiddleware.authenticate,
       ValidationMiddleware.validateBody(VerifyPaymentSchema),
       controller.verifyPayment
     );

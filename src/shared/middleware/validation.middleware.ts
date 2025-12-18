@@ -29,9 +29,8 @@ export class ValidationMiddleware {
   static validateQuery(schema: z.ZodSchema) {
     return (req: Request, res: Response, next: NextFunction): void => {
       try {
-        const validated = schema.parse(req.query);
-        req.query = validated as any;
-        next();
+        (req as any).validatedQuery = schema.parse(req.query);
+        next()
       } catch (error) {
         if (error instanceof ZodError) {
           const errors = error.issues.map((err) => ({
@@ -53,8 +52,7 @@ export class ValidationMiddleware {
   static validateParams(schema: z.ZodSchema) {
     return (req: Request, res: Response, next: NextFunction): void => {
       try {
-        const validated = schema.parse(req.params);
-        req.params = validated as any;
+        (req as any).validatedParams = schema.parse(req.params);
         next();
       } catch (error) {
         if (error instanceof ZodError) {

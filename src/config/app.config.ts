@@ -16,6 +16,6 @@ export const AppConfig = {
     keySecret: process.env.RAZORPAY_KEY_SECRET || "",
   },
   cors: {
-    origin: process.env.CORS_ORIGIN || "http://localhost:3000",
+    origin: process.env.CORS_ORIGIN || "https://localhost:3000",
   },
 };

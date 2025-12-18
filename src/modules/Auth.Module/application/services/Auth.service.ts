@@ -22,7 +22,7 @@ export class AuthService implements IAuthService {
       dto.email,
       passwordHash,
       dto.name,
-      UserRole.CUSTOMER,
+      dto.role,
       dto.phone,
       dto.address
     );

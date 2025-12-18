@@ -13,7 +13,6 @@ export interface OrderItem {
 export class OrderEntity {
   constructor(
     public readonly id: string,
-    public readonly userId: string,
     public readonly items: OrderItem[],
     public readonly subtotal: number,
     public readonly discount: number,
@@ -21,9 +20,10 @@ export class OrderEntity {
     public readonly total: number,
     public readonly status: OrderStatus,
     public readonly paymentStatus: PaymentStatus,
+    public readonly phone: string,
     public readonly couponCode?: string,
     public readonly deliveryAddress?: string,
-    public readonly phone?: string,
+    public readonly userId?: string,
     public readonly notes?: string,
     public readonly razorpayOrderId?: string,
     public readonly razorpayPaymentId?: string,
@@ -65,7 +65,6 @@ export class OrderEntity {
 
     return new OrderEntity(
       "",
-      userId,
       items,
       subtotal,
       discount,
@@ -73,9 +72,10 @@ export class OrderEntity {
       total,
       OrderStatus.PENDING,
       PaymentStatus.PENDING,
+      phone,
       couponCode,
       deliveryAddress,
-      phone,
+      userId,
       notes,
       undefined,
       undefined,
