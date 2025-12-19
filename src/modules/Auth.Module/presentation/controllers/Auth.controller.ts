@@ -41,7 +41,7 @@ export class AuthController {
        secure: true, // ✅ Required for HTTPS
        maxAge: 7 * 24 * 60 * 60 * 1000,
        path: "/",
-       domain: "localhost",
+       domain: AppConfig.cookie.domain,
      });
       
       res.status(200).json({ success: true, data: result.user });
