@@ -19,6 +19,7 @@ import { CouponController } from "./modules/Coupon.Module/presentation/controlle
 import { OrderController } from "./modules/Order.Module/presentation/controllers/Order.controller";
 import { PaymentController } from "./modules/Payment.Module/presentation/controllers/Payment.controller";
 import cookieParser from "cookie-parser";
+import { AppConfig } from "./config/app.config";
 
 export class Application {
   private app: Express;
@@ -47,7 +48,7 @@ export class Application {
   private setupMiddlware(): void {
     this.app.use(
       cors({
-        origin: "https://localhost:3000",
+        origin: AppConfig.cors.origin,
         credentials: true,
         methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
         allowedHeaders: [
