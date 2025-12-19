@@ -53,6 +53,7 @@ export class Application {
           "https://dessy69.in",
           "https://www.dessy69.in",
           "https://localhost:3000",
+          "https://dessy69-new-backend.onrender.com",
         ],
         credentials: true,
         methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
