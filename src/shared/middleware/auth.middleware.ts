@@ -15,8 +15,13 @@ export class AuthMiddleware {
     next: NextFunction
   ): void {
     try {
-      const token = req.cookies?.token;
-      console.log("token", token);
+      // Try to get token from Authorization header first
+      let token = req.headers.authorization?.replace("Bearer ", "");
+
+      // Fallback to cookie if no Authorization header
+      if (!token) {
+        token = req.cookies?.token;
+      }
 
       if (!token) {
         res.status(401).json({ success: false, message: "No token provided" });

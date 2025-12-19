@@ -1,6 +1,11 @@
 import dotenv from "dotenv";
-dotenv.config();
-import {} from "jsonwebtoken"
+import path from "path";
+const env = process.env.NODE_ENV || "dev";
+
+dotenv.config({
+  path: path.resolve(process.cwd(), `.env.${env}`),
+});
+console.log("process.env.PORT", process.env.COOKIE_DOMAIN);
 
 export const AppConfig = {
   port: parseInt(process.env.PORT || "3000", 10),
@@ -16,6 +21,13 @@ export const AppConfig = {
     keySecret: process.env.RAZORPAY_KEY_SECRET || "",
   },
   cors: {
-    origin: process.env.CORS_ORIGIN || "https://localhost:3000",
+    origin: process.env.FRONTEND_URL || "https://localhost:3000",
+  },
+  fast2sms: {
+    apiKey: process.env.FAST2SMS_API_KEY || "",
+    senderId: process.env.FAST2SMS_SENDER_ID || "DESSY69",
+  },
+  cookie: {
+    domain: process.env.COOKIE_DOMAIN || "localhost"
   },
 };

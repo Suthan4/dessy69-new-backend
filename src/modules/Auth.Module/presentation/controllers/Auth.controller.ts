@@ -1,6 +1,7 @@
 import { Request, Response } from "express";
 import { IAuthService } from "../../application/DTOs/IAuthService";
 import { LoginDTO, RegisterDTO } from "../../application/DTOs/AuthDTO";
+import { AppConfig } from "@/config/app.config";
 
 export class AuthController {
   constructor(private authService: IAuthService) {}
@@ -17,11 +18,12 @@ export class AuthController {
       );
       const result = await this.authService.register(reqbody);
      res.cookie("token", result.token, {
-       httpOnly: false, // Can be true for better security
+       httpOnly: true, // Can be true for better security
        sameSite: "none", // ✅ Correct for cross-origin HTTPS
-       maxAge: 7 * 24 * 60 * 60 * 1000,
        secure: true, // ✅ Required for HTTPS
+       maxAge: 7 * 24 * 60 * 60 * 1000,
        path: "/",
+       domain: AppConfig.cookie.domain,
      });
       res.status(201).json({ success: true, data: result.user });
     } catch (error: any) {
@@ -34,11 +36,12 @@ export class AuthController {
       const reqbody = new LoginDTO(req.body.email, req.body.password);
       const result = await this.authService.login(reqbody);
      res.cookie("token", result.token, {
-       httpOnly: false, // Can be true for better security
+       httpOnly: true, // Can be true for better security
        sameSite: "none", // ✅ Correct for cross-origin HTTPS
-       maxAge: 7 * 24 * 60 * 60 * 1000,
        secure: true, // ✅ Required for HTTPS
+       maxAge: 7 * 24 * 60 * 60 * 1000,
        path: "/",
+       domain: "localhost",
      });
       
       res.status(200).json({ success: true, data: result.user });

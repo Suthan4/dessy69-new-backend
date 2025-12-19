@@ -57,6 +57,8 @@ export class Application {
           "X-Requested-With",
         ],
         exposedHeaders: ["Set-Cookie"],
+        preflightContinue: false, // ⚠️ ADD THIS
+        optionsSuccessStatus: 204,
       })
     );
 
@@ -75,7 +77,11 @@ export class Application {
 
   private setupRoutes(): void {
     this.app.use((req, _, next) => {
-      console.log("Incoming cookies:", req.cookies);
+       console.log("=== Request Debug ===");
+       console.log("Origin:", req.headers.origin);
+        console.log("Incoming cookies:", req.cookies);
+       console.log("Headers:", req.headers);
+       console.log("===================");
       next();
     });
     this.app.get("/", (_, res: Response) => {

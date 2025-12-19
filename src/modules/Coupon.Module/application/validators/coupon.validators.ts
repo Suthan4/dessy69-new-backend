@@ -1,5 +1,9 @@
 import { z } from "zod";
-
+const dateSchema = z
+  .union([z.string().datetime(), z.date()])
+  .transform((val) => {
+    return val instanceof Date ? val : new Date(val);
+  });
 export const CreateCouponSchema = z
   .object({
     code: z
@@ -20,16 +24,8 @@ export const CreateCouponSchema = z
       .number()
       .int()
       .positive("Usage limit must be a positive integer"),
-    startDate: z
-      .string()
-      .datetime()
-      .or(z.date())
-      .transform((val) => new Date(val)),
-    endDate: z
-      .string()
-      .datetime()
-      .or(z.date())
-      .transform((val) => new Date(val)),
+    startDate: dateSchema,
+    endDate: dateSchema,
     applicableCategories: z
       .array(z.string().regex(/^[0-9a-fA-F]{24}$/))
       .default([]),

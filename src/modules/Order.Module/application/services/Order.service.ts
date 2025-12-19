@@ -4,14 +4,18 @@ import { ICouponRepository } from "@/modules/Coupon.Module/domain/interfaces/ICo
 import { IOrderRepository } from "../../domain/interfaces/IOrderRepository";
 import { IProductRepository } from "@/modules/Product.Module/domain/interfaces/IProductRepository";
 import { CouponService } from "@/modules/Coupon.Module/application/services/Coupon.service";
+import { SMSService } from "@/modules/Notification.Module/application/services/SMS.service";
 
 export class OrderService {
+  private smsService: SMSService;
   constructor(
     private orderRepository: IOrderRepository,
     private productRepository: IProductRepository,
     private couponService: CouponService,
     private couponRepository: ICouponRepository
-  ) {}
+  ) {
+    this.smsService = new SMSService();
+  }
 
   async createOrder(
     userId: string,
@@ -127,8 +131,48 @@ export class OrderService {
     const order = await this.orderRepository.findById(id);
     if (!order) throw new Error("Order not found");
     if (!order.canBeUpdated()) throw new Error("Order cannot be updated");
+    const updatedOrder = await this.orderRepository.updateStatus(
+      id,
+      status,
+      note
+    );
+    if (updatedOrder && status === OrderStatus.CONFIRMED) {
+      await this.sendOrderConfirmationSMS(updatedOrder);
+    }
+    return updatedOrder;
+  }
 
-    return await this.orderRepository.updateStatus(id, status, note);
+  private async sendOrderConfirmationSMS(order: OrderEntity): Promise<void> {
+    try {
+      if (!order.phone) {
+        console.warn(`No phone number for order ${order.id}`);
+        return;
+      }
+      // Format and validate phone number
+      const formattedPhone = this.smsService.formatPhoneNumber(order.phone);
+
+      if (!this.smsService.validatePhoneNumber(formattedPhone)) {
+        console.warn(
+          `Invalid phone number for order ${order.id}: ${order.phone}`
+        );
+        return;
+      }
+
+      // Prepare SMS data
+      const customerName = "Customer"; // You can extract from user data if available
+
+      await this.smsService.sendOrderConfirmationSMS({
+        orderId: order.id,
+        customerName,
+        phoneNumber: formattedPhone,
+        orderTotal: order.total,
+        estimatedTime: 30, // You can make this dynamic based on items
+      });
+
+      console.log(`✅ Order confirmation SMS sent for order ${order.id}`);
+    } catch (error) {
+      console.error(`❌ Failed to send order confirmation SMS:`, error);
+    }
   }
 
   async cancelOrder(

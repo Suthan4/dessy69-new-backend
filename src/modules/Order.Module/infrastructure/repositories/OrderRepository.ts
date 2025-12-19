@@ -118,7 +118,6 @@ export class OrderRepository implements IOrderRepository {
           : undefined;
     return new OrderEntity(
       doc._id.toString(),
-      userId,
       doc.items,
       doc.subtotal,
       doc.discount,
@@ -126,9 +125,10 @@ export class OrderRepository implements IOrderRepository {
       doc.total,
       doc.status,
       doc.paymentStatus,
+      doc.phone,
       doc.couponCode,
       doc.deliveryAddress,
-      doc.phone,
+      userId,
       doc.notes,
       doc.razorpayOrderId,
       doc.razorpayPaymentId,
