@@ -50,6 +50,7 @@ export class Application {
     this.app.use(
       cors({
         origin: [
+          "https://dessy69-enhanced-frontend.vercel.app",
           "https://dessy69.in",
           "https://www.dessy69.in",
           "http://localhost:3000",
