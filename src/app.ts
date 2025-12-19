@@ -48,7 +48,7 @@ export class Application {
   private setupMiddlware(): void {
     this.app.use(
       cors({
-        origin: AppConfig.cors.origin,
+        origin: ["https://dessy69.in", "https://www.dessy69.in"],
         credentials: true,
         methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
         allowedHeaders: [
