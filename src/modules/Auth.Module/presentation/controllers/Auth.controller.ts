@@ -21,7 +21,7 @@ export class AuthController {
         httpOnly: true, // Can be true for better security
         sameSite: "none", // ✅ Correct for cross-origin HTTPS
         secure: true, // ✅ Required for HTTPS
-        domain: ".dessy69.in",
+        domain: "dessy69",
         path: "/",
         maxAge: 7 * 24 * 60 * 60 * 1000,
       });
@@ -39,7 +39,7 @@ export class AuthController {
         httpOnly: true, // Can be true for better security
         sameSite: "none", // ✅ Correct for cross-origin HTTPS
         secure: true, // ✅ Required for HTTPS
-        domain: ".dessy69.in",
+        domain: "dessy69",
         path: "/",
         maxAge: 7 * 24 * 60 * 60 * 1000,
       });
