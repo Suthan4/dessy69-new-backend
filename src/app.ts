@@ -46,20 +46,16 @@ export class Application {
   }
 
   private setupMiddlware(): void {
+    this.app.set("trust proxy", 1);
     this.app.use(
       cors({
-        origin: ["https://dessy69.in", "https://www.dessy69.in"],
+        origin: [
+          "https://dessy69.in",
+          "https://www.dessy69.in",
+          "https://localhost:3000",
+        ],
         credentials: true,
         methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
-        allowedHeaders: [
-          "Content-Type",
-          "Authorization",
-          "Cookie",
-          "X-Requested-With",
-        ],
-        exposedHeaders: ["Set-Cookie"],
-        preflightContinue: false, // ⚠️ ADD THIS
-        optionsSuccessStatus: 204,
       })
     );
 
@@ -78,11 +74,11 @@ export class Application {
 
   private setupRoutes(): void {
     this.app.use((req, _, next) => {
-       console.log("=== Request Debug ===");
-       console.log("Origin:", req.headers.origin);
-        console.log("Incoming cookies:", req.cookies);
-       console.log("Headers:", req.headers);
-       console.log("===================");
+      console.log("=== Request Debug ===");
+      console.log("Origin:", req.headers.origin);
+      console.log("Incoming cookies:", req.cookies);
+      console.log("Headers:", req.headers);
+      console.log("===================");
       next();
     });
     this.app.get("/", (_, res: Response) => {

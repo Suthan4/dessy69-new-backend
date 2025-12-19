@@ -17,14 +17,14 @@ export class AuthController {
         req.body.address
       );
       const result = await this.authService.register(reqbody);
-     res.cookie("token", result.token, {
-       httpOnly: true, // Can be true for better security
-       sameSite: "none", // ✅ Correct for cross-origin HTTPS
-       secure: true, // ✅ Required for HTTPS
-       maxAge: 7 * 24 * 60 * 60 * 1000,
-       path: "/",
-       domain: AppConfig.cookie.domain,
-     });
+      res.cookie("token", result.token, {
+        httpOnly: true, // Can be true for better security
+        sameSite: "none", // ✅ Correct for cross-origin HTTPS
+        secure: true, // ✅ Required for HTTPS
+        domain: ".dessy69.in",
+        path: "/",
+        maxAge: 7 * 24 * 60 * 60 * 1000,
+      });
       res.status(201).json({ success: true, data: result.user });
     } catch (error: any) {
       res.status(400).json({ success: false, message: error.message });
@@ -35,15 +35,15 @@ export class AuthController {
     try {
       const reqbody = new LoginDTO(req.body.email, req.body.password);
       const result = await this.authService.login(reqbody);
-     res.cookie("token", result.token, {
-       httpOnly: true, // Can be true for better security
-       sameSite: "none", // ✅ Correct for cross-origin HTTPS
-       secure: true, // ✅ Required for HTTPS
-       maxAge: 7 * 24 * 60 * 60 * 1000,
-       path: "/",
-       domain: AppConfig.cookie.domain,
-     });
-      
+      res.cookie("token", result.token, {
+        httpOnly: true, // Can be true for better security
+        sameSite: "none", // ✅ Correct for cross-origin HTTPS
+        secure: true, // ✅ Required for HTTPS
+        domain: ".dessy69.in",
+        path: "/",
+        maxAge: 7 * 24 * 60 * 60 * 1000,
+      });
+
       res.status(200).json({ success: true, data: result.user });
     } catch (error: any) {
       res.status(401).json({ success: false, message: error.message });
