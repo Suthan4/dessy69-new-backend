@@ -57,7 +57,7 @@ export class Application {
         ],
         credentials: true,
         methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
-        allowedHeaders: ["Content-Type", "Authorization"], // Add this
+        allowedHeaders: ["Content-Type", "Authorization", "Cookie"], // Add this
       })
     );
 
