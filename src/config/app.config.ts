@@ -5,7 +5,7 @@ const env = process.env.NODE_ENV || "dev";
 dotenv.config({
   path: path.resolve(process.cwd(), `.env.${env}`),
 });
-console.log("process.env.PORT", process.env.COOKIE_DOMAIN);
+console.log("process.env.PORT", process.env.FRONTEND_URL);
 
 export const AppConfig = {
   port: parseInt(process.env.PORT || "3000", 10),
@@ -21,7 +21,7 @@ export const AppConfig = {
     keySecret: process.env.RAZORPAY_KEY_SECRET || "",
   },
   cors: {
-    origin: process.env.FRONTEND_URL || "https://localhost:3000",
+    origin: process.env.FRONTEND_URL,
   },
   fast2sms: {
     apiKey: process.env.FAST2SMS_API_KEY || "",
