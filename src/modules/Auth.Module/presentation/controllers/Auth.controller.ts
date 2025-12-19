@@ -1,7 +1,6 @@
 import { Request, Response } from "express";
 import { IAuthService } from "../../application/DTOs/IAuthService";
 import { LoginDTO, RegisterDTO } from "../../application/DTOs/AuthDTO";
-import { AppConfig } from "@/config/app.config";
 
 export class AuthController {
   constructor(private authService: IAuthService) {}
@@ -19,8 +18,7 @@ export class AuthController {
       const result = await this.authService.register(reqbody);
         res.cookie("token", result.token, {
           httpOnly: true, // Can be true for better security
-          // sameSite: "none", // ✅ Correct for cross-origin HTTPS
-          sameSite: "lax", // ✅ Changed from "none" since it's same-origin via proxy
+          sameSite: "none", // ✅ Correct for cross-origin HTTPS
           secure: true, // ✅ Required for HTTPS
           path: "/",
           maxAge: 7 * 24 * 60 * 60 * 1000,
@@ -37,8 +35,7 @@ export class AuthController {
       const result = await this.authService.login(reqbody);
       res.cookie("token", result.token, {
         httpOnly: true, // Can be true for better security
-        // sameSite: "none", // ✅ Correct for cross-origin HTTPS
-        sameSite: "lax", // ✅ Changed from "none" since it's same-origin via proxy
+        sameSite: "none", // ✅ Correct for cross-origin HTTPS
         secure: true, // ✅ Required for HTTPS
         path: "/",
         maxAge: 7 * 24 * 60 * 60 * 1000,

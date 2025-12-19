@@ -52,11 +52,12 @@ export class Application {
         origin: [
           "https://dessy69.in",
           "https://www.dessy69.in",
+          "http://localhost:3000",
           "https://localhost:3000",
-          "https://dessy69-new-backend.onrender.com",
         ],
         credentials: true,
         methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+        allowedHeaders: ["Content-Type", "Authorization"], // Add this
       })
     );
 
