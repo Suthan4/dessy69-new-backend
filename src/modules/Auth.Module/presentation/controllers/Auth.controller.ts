@@ -21,7 +21,8 @@ export class AuthController {
           sameSite: "none", // ✅ Correct for cross-origin HTTPS
           secure: true, // ✅ Required for HTTPS
           path: "/",
-          domain: ".dessy69.in",
+          // domain: ".dessy69.in",
+          // domain: "localhost",
           maxAge: 7 * 24 * 60 * 60 * 1000,
         });
       res.status(201).json({ success: true, data: result.user });
@@ -39,7 +40,8 @@ export class AuthController {
         sameSite: "none", // ✅ Correct for cross-origin HTTPS
         secure: true, // ✅ Required for HTTPS
         path: "/",
-        domain: ".dessy69.in",
+        // domain: ".dessy69.in",
+        // domain: "localhost",
         maxAge: 7 * 24 * 60 * 60 * 1000,
       });
 
