@@ -16,16 +16,18 @@ export class AuthController {
         req.body.address
       );
       const result = await this.authService.register(reqbody);
-        res.cookie("token", result.token, {
-          httpOnly: true, // Can be true for better security
-          sameSite: "none", // ✅ Correct for cross-origin HTTPS
-          secure: true, // ✅ Required for HTTPS
-          path: "/",
-          // domain: ".dessy69.in",
-          // domain: "localhost",
-          maxAge: 7 * 24 * 60 * 60 * 1000,
-        });
-      res.status(201).json({ success: true, data: result.user });
+      res.cookie("token", result.token, {
+        httpOnly: true, // Can be true for better security
+        sameSite: "none", // ✅ Correct for cross-origin HTTPS
+        secure: true, // ✅ Required for HTTPS
+        path: "/",
+        // domain: ".dessy69.in",
+        // domain: "localhost",
+        maxAge: 7 * 24 * 60 * 60 * 1000,
+      });
+      res
+        .status(201)
+        .json({ success: true, data: result.user, token: result.token });
     } catch (error: any) {
       res.status(400).json({ success: false, message: error.message });
     }
@@ -45,7 +47,9 @@ export class AuthController {
         maxAge: 7 * 24 * 60 * 60 * 1000,
       });
 
-      res.status(200).json({ success: true, data: result.user });
+      res
+        .status(200)
+        .json({ success: true, data: result.user, token: result.token });
     } catch (error: any) {
       res.status(401).json({ success: false, message: error.message });
     }
