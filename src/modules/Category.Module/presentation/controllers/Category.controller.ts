@@ -62,12 +62,8 @@ export class CategoryController {
 
   deleteCategory = async (req: Request, res: Response): Promise<void> => {
     try {
-      const result = await this.categoryService.deleteCategory(req.params.id as string);
-      if (!result) {
-        res.status(404).json({ success: false, message: "Category not found" });
-        return;
-      }
-      res.json({ success: true, message: "Category deleted" });
+      await this.categoryService.deleteCategory(req.params.id as string);
+      res.status(204).send();
     } catch (error: any) {
       res.status(400).json({ success: false, message: error.message });
     }

@@ -42,19 +42,23 @@ export class CategoryService {
     return await this.categoryRepository.update(id, { name, description });
   }
 
-  async deleteCategory(id: string): Promise<boolean> {
-    // Also delete all descendants
+  async deleteCategory(id: string): Promise<void> {
+    // Try to find category (optional)
     const category = await this.categoryRepository.findById(id);
-    if (!category) return false;
 
-    const descendants = await this.categoryRepository.findDescendants(
-      category.path
-    );
-    for (const desc of descendants) {
-      await this.categoryRepository.delete(desc.id);
+    if (category) {
+      // Delete descendants only if category exists
+      const descendants = await this.categoryRepository.findDescendants(
+        category.path
+      );
+
+      for (const desc of descendants) {
+        await this.categoryRepository.delete(desc.id);
+      }
     }
 
-    return await this.categoryRepository.delete(id);
+    // Always attempt delete (safe even if already deleted)
+    await this.categoryRepository.delete(id);
   }
 
   private buildTree(categories: CategoryEntity[]): any[] {
