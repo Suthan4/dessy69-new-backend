@@ -6,6 +6,14 @@ export interface ProductVariant {
   sellingPrice: number;
   isAvailable: boolean;
 }
+export interface Ingredient {
+  id: string;
+  name: string;
+  quantity?: string;
+  isOptional: boolean;
+  additionalPrice?: number;
+  allergens?: string[];
+}
 
 export class ProductEntity {
   constructor(
@@ -19,7 +27,7 @@ export class ProductEntity {
     public readonly isAvailable: boolean,
     public readonly variants: ProductVariant[],
     public readonly images: string[],
-    public readonly ingredients: string[],
+    public readonly ingredients: Ingredient[],
     public readonly nutritionInfo?: any,
     public readonly createdAt: Date = new Date(),
     public readonly updatedAt: Date = new Date()
@@ -50,7 +58,7 @@ export class ProductEntity {
     sellingPrice: number,
     variants: ProductVariant[] = [],
     images: string[] = [],
-    ingredients: string[] = []
+    ingredients: Ingredient[] = []
   ): ProductEntity {
     return new ProductEntity(
       "",

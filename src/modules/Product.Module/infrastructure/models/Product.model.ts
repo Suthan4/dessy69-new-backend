@@ -1,5 +1,18 @@
-import { model, Schema } from "mongoose";
+import { model, models, Schema } from "mongoose";
 
+// Ingredient sub-schema
+const IngredientSchema = new Schema(
+  {
+    name: { type: String, required: true, trim: true },
+    quantity: { type: String },
+    isOptional: { type: Boolean, required: true },
+    additionalPrice: { type: Number, default: 0 },
+    allergens: [{ type: String }],
+  },
+  { _id: true }
+);
+
+// Product variant sub-schema
 const ProductVariantSchema = new Schema(
   {
     name: { type: String, required: true },
@@ -11,6 +24,7 @@ const ProductVariantSchema = new Schema(
   { _id: true }
 );
 
+// Main product schema
 const ProductSchema = new Schema(
   {
     name: { type: String, required: true, trim: true },
@@ -27,12 +41,13 @@ const ProductSchema = new Schema(
     isAvailable: { type: Boolean, default: true, index: true },
     variants: [ProductVariantSchema],
     images: [{ type: String }],
-    ingredients: [{ type: String }],
-    nutritionInfo: { type: Schema.Types.Mixed },
+    ingredients: [IngredientSchema], // now an array of objects
+    nutritionInfo: { type: Map, of: Object }, // dynamic keys like per100ml, perServing
   },
   { timestamps: true }
 );
 
+// Full-text index
 ProductSchema.index({ name: "text", description: "text" });
 
 export const ProductModel = model("Product", ProductSchema);

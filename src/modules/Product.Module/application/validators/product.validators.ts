@@ -7,6 +7,19 @@ const ProductVariantSchema = z.object({
   sellingPrice: z.number().positive("Selling price must be positive"),
   isAvailable: z.boolean().default(true),
 });
+const IngredientSchema = z.object({
+  name: z.string().min(2, "Variant name must be at least 2 characters"),
+  quantity: z.string().optional(),
+  isOptional: z.boolean(),
+  additionalPrice: z.number().optional(),
+  allergens: z.array(z.string()).optional(),
+});
+const NutritionSchema = z.object({
+  calories: z.number().optional(),
+  protein: z.number().optional(),
+  carbs: z.number().optional(),
+  fat: z.number().optional(),
+});
 
 export const CreateProductSchema = z
   .object({
@@ -30,8 +43,8 @@ export const CreateProductSchema = z
     sellingPrice: z.number().positive("Selling price must be positive"),
     variants: z.array(ProductVariantSchema).default([]),
     images: z.array(z.string().url()).default([]),
-    ingredients: z.array(z.string()).default([]),
-    nutritionInfo: z.record(z.string(), z.any()).optional(),
+    ingredients: z.array(IngredientSchema).default([]),
+    nutritionInfo: z.record(z.string(), NutritionSchema).optional(),
   })
   .refine((data) => data.sellingPrice <= data.basePrice, {
     message: "Selling price cannot be greater than base price",
@@ -46,8 +59,8 @@ export const UpdateProductSchema = z.object({
   isAvailable: z.boolean().optional(),
   variants: z.array(ProductVariantSchema).optional(),
   images: z.array(z.string().url()).optional(),
-  ingredients: z.array(z.string()).optional(),
-  nutritionInfo: z.record(z.string(), z.any()).optional(),
+  ingredients: z.array(IngredientSchema).optional(),
+  nutritionInfo: z.record(z.string(),NutritionSchema).optional(),
 });
 
 export const UpdateAvailabilitySchema = z.object({

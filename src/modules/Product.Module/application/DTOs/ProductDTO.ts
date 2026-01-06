@@ -1,9 +1,6 @@
 import { Types } from "mongoose";
 import {
   ProductVariant,
-  Ingredient,
-  NutritionInfo,
-  ProductMetadata,
 } from "../../domain/entities/Product.entity";
 
 export interface CreateProductDTO {
@@ -90,4 +87,25 @@ export interface ProductResponseDTO {
   metadata: ProductMetadata;
   createdAt: Date;
   updatedAt: Date;
+}
+
+export interface Ingredient {
+  name: string;
+  quantity?: string;
+  isOptional: boolean;
+  additionalPrice?: number;
+  allergens?: string[];
+}
+
+export interface NutritionInfo {
+  calories?: number;
+  protein?: number;
+  carbs?: number;
+  fat?: number;
+}
+
+export interface ProductMetadata {
+  shelfLife?: string;
+  storageInstructions?: string;
+  countryOfOrigin?: string;
 }
